@@ -1,0 +1,334 @@
+---
+title: "HMAGMA pathways"
+author: "Aydan Askarova"
+date: "01/02/2023"
+output: html_document
+---
+
+```{r}
+library(scales)
+library(gprofiler2)
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(data.table)
+
+```
+
+##All genes
+```{r cars}
+cell<- c("Microglia_interactome", "Neuronal_interactome", "Oligo_interactome")
+type<-c("AD_Jansen2019", "AD_Kunkle2019","PD_Nalls2019proxy", "MS_Andlauer2016", "ALS_Rheenen2021", "SCZ_Trubetskoy2022")
+colour<-c("darkorange2", "goldenrod1", "midnightblue", "orangered4", "slateblue3", "olivedrab3")
+
+#Directories to save the files 
+
+outdir<-"/rds/general/user/aa19618/home/HMAGMA_Protocol/output_annotation_v4/"
+resultsdir<-"/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/pathways/"
+
+dat<-c()
+for(t in 1:length(type)) {
+  for(c in 1:length(cell)){
+    for(k in 1:length(colour)){
+
+load(file = paste0(outdir, cell[c], "_", type[t], "_fdr005_output_genes_v4.rda"))
+    
+gprof<-gost(query = diseasemat_names$gene_ensg, organism = "hsapiens", ordered_query = TRUE, multi_query = FALSE, significant = TRUE, exclude_iea = FALSE, measure_underrepresentation = FALSE, evcodes = TRUE, user_threshold = 0.05, correction_method = "false_discovery_rate", domain_scope = "annotated", custom_bg = NULL, numeric_ns = "", sources = NULL, as_short_link = FALSE)
+
+gp_mod = gprof$result[,c("query", "source", "term_id",
+                                "term_name", "p_value", "query_size", 
+                                "intersection_size", "term_size", 
+                                "effective_domain_size", "intersection")]
+
+gp_mod$GeneRatio = paste0(gp_mod$intersection_size,  "/", gp_mod$query_size)
+gp_mod$BgRatio = paste0(gp_mod$term_size, "/", gp_mod$effective_domain_size)
+names(gp_mod) = c("Cluster", "Category", "ID", "Description", "P-value", 
+                    "query_size", "Count", "term_size", "effective_domain_size", 
+                    "geneID", "GeneRatio", "BgRatio")
+
+row.names(gp_mod) = gp_mod$ID
+gp_mod_filtered<-gp_mod[order(gp_mod$`P-value`),] 
+
+gp_mod_filtered <- gp_mod_filtered[order(gp_mod_filtered$`P-value`, decreasing = FALSE), ] 
+gp_mod_filtered<-setDT(gp_mod_filtered)[ , .SD[which.min(`P-value`)], by = geneID] 
+
+#gp_mod_filtered <- gp_mod_filtered %>%                                      # Top N highest values by group
+#  arrange(-desc(`P-value`)) %>% 
+#  group_by(Category) %>%
+#  slice(1:10)
+
+gp_mod_filtered$P_log<- -log10(gp_mod_filtered$`P-value`)
+gp_mod_filtered<-gp_mod_filtered[,c(3,5,13)]
+gp_mod_filtered<-gp_mod_filtered[1:20,]
+
+#gp_mod_filtered<-gp_mod_filtered[,c(4,13)]
+
+plot<-ggplot(data = gp_mod_filtered, mapping = aes(x = reorder(Description, P_log), y = P_log, fill = P_log)) +
+      geom_col() +
+      coord_flip() +
+      scale_fill_continuous(low = paste0(colour[k]), high=paste0(colour[k])) +
+      scale_x_discrete(labels = wrap_format(70)) +
+      theme_classic() +
+      theme(axis.title.x = element_text(size = 12), axis.title.y = element_blank(), axis.text.x = element_text(size = 14, colour = "black"), axis.text.y = element_text(size=14, colour = "black"), legend.text = element_text(size = 12, colour = "black")) +
+      xlab("") +
+      ylab("Enrichment score (-log(P-value))") +
+      geom_hline(yintercept = -log10(0.05), color = "orange") +
+      guides(fill=guide_legend(title="-log10(P-value)")) +
+      ggtitle(label = paste0(type[t], " ", cell[c]))
+
+ ggsave(filename = paste0(type[t], "_", cell[c], "_", colour[k], "_pathway_v6.pdf"), plot = plot, device = "pdf", path = "~/HMAGMA_Protocol/results/graphs/pathways/",  width = 25, height = 15, units = "cm")
+ 
+assign(paste0(type[t], "_", cell[c], "_plot"), plot)
+
+#Adding gene names to each pathway
+
+load(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/required_files/gene_information.rda")
+genes<-genes[,c("gene_name", "gene_id")]
+
+gp_mod_gene_count<-gp_mod[order(gp_mod$`P-value`),] 
+gp_mod_gene_count<-separate_rows(data = gp_mod_gene_count, "geneID", sep = ",")
+
+intersection<-merge(x = gp_mod_gene_count, y = genes, by.x="geneID", by.y="gene_id", all.x=TRUE)
+intersection<-unique(intersection) 
+
+#detach(package:plyr) #otherwise group_by() and summarise() does not work 
+intersection_2<-intersection %>% group_by(ID) %>%  summarise(genes=paste(gene_name, collapse="/"))
+intersection_3<-merge(x = intersection, y=intersection_2, by="ID", all.x=TRUE)
+intersection_3<-intersection_3[,-c(2,13)]
+intersection_3<-intersection_3[order(intersection_3$`P-value`),]
+intersection_3<-unique(intersection_3)
+
+write.table(x = intersection_3, file = paste0(resultsdir, type[t], "_", cell[c], "_path_genes_v7.txt"), sep = "\t", col.names = T, row.names = F)
+  }
+  }
+}
+
+```
+
+
+
+##Unique genes per cell type 
+
+```{r}
+cell<- c("Microglia_interactome", "Neuronal_interactome", "Oligo_interactome")
+type<-c("AD_Jansen2019", "AD_Kunkle2019", "PD_Nalls2019proxy", "MS_Andlauer2016", "ALS_Rheenen2021", "SCZ_Trubetskoy2022")
+colour<-c("darkorange2", "goldenrod1", "midnightblue", "orangered4", "slateblue3", "olivedrab3")
+
+#Directories to save the files 
+
+outdir<-"/rds/general/user/aa19618/home/HMAGMA_Protocol/output_annotation_v4/"
+resultsdir<-"/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/pathways/"
+
+dat<-c()
+for(t in 1:length(type)) {
+  for(c in 1:length(cell)){
+    for(k in 1:length(colour)){
+
+
+load(file = paste0(outdir, cell[c], "_", type[t], "_fdr005_output_unique_genes_v4.rda"))
+unique_genes<-vsall_unique
+
+gprof<-gost(query = unique_genes$gene_ensg, organism = "hsapiens", ordered_query = TRUE, multi_query = FALSE, significant = TRUE, exclude_iea = FALSE, measure_underrepresentation = FALSE, evcodes = TRUE, user_threshold = 0.05, correction_method = "false_discovery_rate", domain_scope = "annotated", custom_bg = NULL, numeric_ns = "", sources = NULL, as_short_link = FALSE)
+
+gp_mod = gprof$result[,c("query", "source", "term_id",
+                                "term_name", "p_value", "query_size", 
+                                "intersection_size", "term_size", 
+                                "effective_domain_size", "intersection")]
+
+gp_mod$GeneRatio = paste0(gp_mod$intersection_size,  "/", gp_mod$query_size)
+gp_mod$BgRatio = paste0(gp_mod$term_size, "/", gp_mod$effective_domain_size)
+names(gp_mod) = c("Cluster", "Category", "ID", "Description", "P-value", 
+                    "query_size", "Count", "term_size", "effective_domain_size", 
+                    "geneID", "GeneRatio", "BgRatio")
+
+row.names(gp_mod) = gp_mod$ID
+gp_mod_filtered<-gp_mod[order(gp_mod$`P-value`),]
+
+gp_mod_filtered <- gp_mod_filtered[order(gp_mod_filtered$`P-value`, decreasing = FALSE), ]
+gp_mod_filtered<-setDT(gp_mod_filtered)[ , .SD[which.min(`P-value`)], by = geneID] 
+
+#gp_mod_filtered <- gp_mod_filtered %>%                                      # Top N highest values by group
+#  arrange(-desc(`P-value`)) %>% 
+#  group_by(Category) %>%
+#  slice(1:10)
+
+gp_mod_filtered$P_log<- -log10(gp_mod_filtered$`P-value`)
+gp_mod_filtered<-gp_mod_filtered[,c(3,5,13)]
+gp_mod_filtered<-gp_mod_filtered[1:10,]
+
+#gp_mod_filtered<-gp_mod_filtered[,c(4,13)]
+
+plot <- gp_mod_filtered %>% 
+  ggplot(mapping = aes(x = reorder(Description, P_log), y = P_log, fill = P_log)) +
+  geom_col() +
+  coord_flip() +
+  geom_col() +
+  scale_fill_continuous(low = paste0(colour[k]), high=paste0(colour[k])) +
+  scale_x_discrete(labels = wrap_format(70)) +
+theme_classic() +
+      theme(axis.title.x = element_text(size = 12), axis.title.y = element_blank(), axis.text.x = element_text(size = 14, colour = "black"), axis.text.y = element_text(size=14, colour = "black"), legend.text = element_text(size = 12, colour = "black")) +
+      xlab("") +
+      ylab("Enrichment score (-log(P-value))") +
+      geom_hline(yintercept = -log10(0.05), color = "orange") +
+      guides(fill=guide_legend(title="-log10(P-value)")) +
+      ggtitle(label = paste0(type[t], " ", cell[c], "unique_genes_v4"))
+plot
+ 
+ ggsave(filename = paste0(type[t], "_", cell[c], "_", colour[k], "_unique_pathway_v5.pdf"), plot = plot, device = "pdf", path = "~/HMAGMA_Protocol/results/graphs/pathways/",  width = 25, height = 15, units = "cm")
+
+assign(paste0(type[t], "_", cell[c], "_unique_plot"), plot)
+
+#Adding gene names to each pathway
+
+load(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/required_files/gene_information.rda")
+genes<-genes[,c("gene_name", "gene_id")]
+
+gp_mod_gene_count<-gp_mod[order(gp_mod$`P-value`),] 
+gp_mod_gene_count<-separate_rows(data = gp_mod_gene_count, "geneID", sep = ",")
+
+intersection<-merge(x = gp_mod_gene_count, y = genes, by.x="geneID", by.y="gene_id", all.x=TRUE)
+intersection<-unique(intersection) 
+
+#detach(package:plyr) #otherwise group_by() and summarise() does not work 
+intersection_2<-intersection %>% group_by(ID) %>%  summarise(genes=paste(gene_name, collapse="/"))
+intersection_3<-merge(x = intersection, y=intersection_2, by="ID", all.x=TRUE)
+intersection_3<-intersection_3[,-c(2,13)]
+intersection_3<-intersection_3[order(intersection_3$`P-value`),]
+intersection_3<-unique(intersection_3)
+
+write.table(x = intersection_3, file = paste0(resultsdir, type[t], "_", cell[c], "_path_unique_genes_v5.txt"), sep = "\t", col.names = T, row.names = F)
+    }
+  }
+}
+
+
+```
+
+```{r}
+load(file = "~/HMAGMA_Protocol/output_annotation/Microglia_PD_fdr005_output_genes.rda")
+
+gprof<-gost(query = diseasemat_names$gene_ensg, organism = "hsapiens", ordered_query = TRUE, multi_query = FALSE, significant = TRUE, exclude_iea = FALSE, measure_underrepresentation = FALSE, evcodes = TRUE, user_threshold = 0.05, correction_method = "false_discovery_rate", domain_scope = "annotated", custom_bg = NULL, numeric_ns = "", sources = NULL, as_short_link = FALSE)
+
+gp_mod = gprof$result[,c("query", "source", "term_id",
+                                "term_name", "p_value", "query_size", 
+                                "intersection_size", "term_size", 
+                                "effective_domain_size", "intersection")]
+
+gp_mod$GeneRatio = paste0(gp_mod$intersection_size,  "/", gp_mod$query_size)
+gp_mod$BgRatio = paste0(gp_mod$term_size, "/", gp_mod$effective_domain_size)
+names(gp_mod) = c("Cluster", "Category", "ID", "Description", "P-value", 
+                    "query_size", "Count", "term_size", "effective_domain_size", 
+                    "geneID", "GeneRatio", "BgRatio")
+
+row.names(gp_mod) = gp_mod$ID
+gp_mod_filtered<-gp_mod[order(gp_mod$`P-value`),] 
+
+gp_mod_filtered$P_log<- -log10(gp_mod_filtered$`P-value`)
+
+gp_mod_filtered<-gp_mod_filtered[1:10,]
+
+gp_mod_filtered<-gp_mod_filtered[,c(4,13)]
+
+
+gp_mod_filtered<-gp_mod_filtered[-3,]
+
+plot <- gp_mod_filtered %>% 
+  ggplot(mapping = aes(x = reorder(Description, P_log), y = P_log, fill = P_log)) +
+  geom_col() +
+  coord_flip() +
+  geom_col() +
+  scale_fill_continuous(low="dark blue", high="light blue") + 
+  scale_x_discrete(labels = wrap_format(50)) +
+  xlab("Pathways") +
+  ylab("Enrichment score (-log(P-value))") +
+  theme(text = element_text(size=10)) +
+  theme_classic()+
+  geom_hline(yintercept = -log10(0.05), color = "orange", linewidth = 1) +
+  guides(fill=guide_legend(title="-log10(P-value)")) +
+  ggtitle(label = "PD Microglia")
+
+  ggsave(filename = "~/HMAGMA_Protocol/results/graphs/new_graphs/PD_Microglia_pathway2.pdf", plot = plot, device = "pdf", width = 20, height = 10, units = "cm")
+
+plot
+```
+
+
+
+##Control - overlapping genes
+```{r}
+type<-c("AD_jansen2019", "PD_nalls2019", "MS_andlauer2016", "ALS_rheenen2021", "SCZ_trubetskoy2022info9") #.v3
+
+#Directories to save the files 
+
+outdir<-"/rds/general/user/aa19618/home/HMAGMA_Protocol/output_annotation_v3/"
+resultsdir<-"/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/pathways/"
+
+dat<-c()
+for(t in 1:length(type)) {
+load(file = paste0(outdir, type[t], "_fdr005_overlapping_genes_v3.rda"))
+    
+gprof<-gost(query = overlapping_min$gene_ensg, organism = "hsapiens", ordered_query = TRUE, multi_query = FALSE, significant = TRUE, exclude_iea = FALSE, measure_underrepresentation = FALSE, evcodes = TRUE, user_threshold = 0.05, correction_method = "false_discovery_rate", domain_scope = "annotated", custom_bg = NULL, numeric_ns = "", sources = NULL, as_short_link = FALSE)
+
+gp_mod = gprof$result[,c("query", "source", "term_id",
+                                "term_name", "p_value", "query_size", 
+                                "intersection_size", "term_size", 
+                                "effective_domain_size", "intersection")]
+
+gp_mod$GeneRatio = paste0(gp_mod$intersection_size,  "/", gp_mod$query_size)
+gp_mod$BgRatio = paste0(gp_mod$term_size, "/", gp_mod$effective_domain_size)
+names(gp_mod) = c("Cluster", "Category", "ID", "Description", "P-value", 
+                    "query_size", "Count", "term_size", "effective_domain_size", 
+                    "geneID", "GeneRatio", "BgRatio")
+
+row.names(gp_mod) = gp_mod$ID
+gp_mod_filtered<-gp_mod[order(gp_mod$`P-value`),] 
+
+gp_mod_filtered$P_log<- -log10(gp_mod_filtered$`P-value`)
+
+gp_mod_filtered<-gp_mod_filtered[1:10,]
+
+gp_mod_filtered<-gp_mod_filtered[,c(4,13)]
+plot <- gp_mod_filtered %>% 
+  ggplot(mapping = aes(x = reorder(Description, P_log), y = P_log, fill = P_log)) +
+  geom_col() +
+  coord_flip() +
+  geom_col() +
+  scale_fill_continuous(low="dark blue", high="light blue") + 
+  scale_x_discrete(labels = wrap_format(50)) +
+  xlab("Pathways") +
+  ylab("Enrichment score (-log(P-value))") +
+  theme(text = element_text(size=10)) +
+  theme_classic()+
+  geom_hline(yintercept = -log10(0.05), color = "orange", linewidth = 1) +
+  guides(fill=guide_legend(title="-log10(P-value)")) +
+  ggtitle(label = paste0(type[t]))
+ 
+ ggsave(filename = paste0(type[t], "_overlapping_pathway_v3.pdf"), plot = plot, device = "pdf", path = "~/HMAGMA_Protocol/results/graphs/pathways/",  width = 20, height = 10, units = "cm")
+ 
+assign(paste0(type[t], "_overlapping_plot"), plot)
+
+#Adding gene names to each pathway
+
+load(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/required_files/gene_information.rda")
+genes<-genes[,c("gene_name", "gene_id")]
+
+ggp_mod_gene_count<-gp_mod[order(gp_mod$`P-value`),] 
+gp_mod_gene_count<-separate_rows(data = gp_mod_gene_count, "geneID", sep = ",")
+
+intersection<-merge(x = gp_mod_gene_count, y = genes, by.x="geneID", by.y="gene_id", all.x=TRUE)
+intersection<-unique(intersection) 
+
+#detach(package:plyr) #otherwise group_by() and summarise() does not work 
+intersection_2<-intersection %>% group_by(ID) %>%  summarise(genes=paste(gene_name, collapse="/"))
+intersection_3<-merge(x = intersection, y=intersection_2, by="ID", all.x=TRUE)
+intersection_3<-intersection_3[,-c(2,13)]
+intersection_3<-intersection_3[order(intersection_3$`P-value`),]
+intersection_3<-unique(intersection_3)
+
+write.table(x = intersection_3, file = paste0(resultsdir, type[t], "_path_overlapping_genes_v3.txt"), sep = "\t", col.names = T, row.names = F)
+  }
+
+
+```
+

@@ -1,0 +1,903 @@
+---
+title: "Untitled"
+author: "Aydan Askarova"
+date: "28/06/2023"
+output: html_document
+---
+
+title: "pheatmap_cell_specific"
+author: "Aydan Askarova"
+date: "27/06/2023"
+output: html_document
+---
+```{r packaged}
+
+library(pheatmap)
+library(RColorBrewer)
+library(data.table)
+library(plyr)
+library(dplyr)
+library(UpSetR)
+library(purrr)
+library(ComplexHeatmap)
+library(ggplot2)
+
+```
+#Cell names and disease names 
+```{r}
+#Cell names and disease names 
+#type<-c("AD", "MS", "ALS", "PD", "SCZ")
+cell<- c("Microglia_interactome", "Neuronal_interactome", "Oligo_interactome")
+type<-c("AD_Jansen2019", "AD_Kunkle2019", "PD_Nalls2019proxy", "MS_Andlauer2016", "ALS_Rheenen2021", "SCZ_Trubetskoy2022", "Longevity_Deelan201990th")
+#Directories to save the files 
+dir<-"~/HMAGMA_Protocol/HMAGMA_output_v3/original/"
+outdir<-"~/HMAGMA_Protocol/output_annotation_v4/"
+
+for(c in 1:length(cell)){
+  for(t in 1:length(type)){
+    
+    load(file= paste0(outdir, cell[c], "_",  type[t], "_fdr005_output_genes_v4.rda")) #diseasemat_names
+    diseasemat_names<-diseasemat_names[,c("gene_name", "gene_fdr")]
+    #diseasemat_names<- diseasemat_names %>% filter(diseasemat_names$gene_fdr<5e-8)
+    #diseasemat_names<-diseasemat_names[1:50,] #per disease heatmap
+    colnames(diseasemat_names)[2]<-paste0(cell[c], "_", type[t])
+    assign(paste0(type[t], "_", cell[c]), diseasemat_names)
+  }
+}
+
+for(c in 1:length(cell)){
+  for(t in 1:length(type)){
+    
+    load(file= paste0(outdir, cell[c], "_",  type[t], "_fdr005_output_genes_v4.rda")) #diseasemat_names
+    diseasemat_names<-diseasemat_names[,c("gene_name", "gene_fdr")]
+    diseasemat_names<- diseasemat_names %>% filter(diseasemat_names$gene_fdr<5e-8)
+    #diseasemat_names<-diseasemat_names[1:50,] #per disease heatmap
+    colnames(diseasemat_names)[2]<-paste0(cell[c], "_", type[t])
+    assign(paste0(type[t], "_5e8", cell[c]), diseasemat_names)
+  }
+}
+
+type<-c("SCZ_Trubetskoy2022") #.v2 
+
+for(c in 1:length(cell)){
+  for(t in 1:length(type)){
+    
+    load(file= paste0(outdir, cell[c], "_",  type[t], "_fdr005_output_genes_v4.rda")) #diseasemat_names
+    diseasemat_names<-diseasemat_names[,c("gene_name", "gene_fdr")]
+    diseasemat_names<- diseasemat_names %>% filter(diseasemat_names$gene_fdr<5e-12)
+    #diseasemat_names<-diseasemat_names[1:50,]  #per disease heatmap
+    colnames(diseasemat_names)[2]<-paste0(cell[c], "_", type[t])
+    assign(paste0(type[t], "_5e12", cell[c]), diseasemat_names)
+  }
+}
+```
+
+
+#UPSET PLOT -INTERSECTION OF ALL GENES in NUMBERS
+```{r}
+lt = list(AD_Jansen = AD_Jansen2019_Microglia_interactome$gene_name, PD=PD_Nalls2019proxy_Microglia_interactome$gene_name, MS = MS_Andlauer2016_Microglia_interactome$gene_name, ALS = ALS_Rheenen2021_Microglia_interactome$gene_name, SCZ = SCZ_Trubetskoy2022_5e8Microglia_interactome$gene_name)
+
+lt_oligo = list(AD_Jasen = AD_Jansen2019_Oligo_interactome$gene_name, PD=PD_Nalls2019proxy_Oligo_interactome$gene_name, MS = MS_Andlauer2016_Oligo_interactome$gene_name, ALS = ALS_Rheenen2021_Oligo_interactome$gene_name, SCZ = SCZ_Trubetskoy2022_5e8Oligo_interactome$gene_name)
+
+lt_neun = list(AD_Jansen = AD_Jansen2019_Neuronal_interactome$gene_name, PD=PD_Nalls2019proxy_Neuronal_interactome$gene_name, MS = MS_Andlauer2016_Neuronal_interactome$gene_name, ALS = ALS_Rheenen2021_Neuronal_interactome$gene_name, SCZ = SCZ_Trubetskoy2022_5e8Neuronal_interactome$gene_name)
+
+pu1 <- upset(fromList(lt), order.by = "freq", sets.bar.color = c("midnightblue","olivedrab3", "orangered4", "darkorange2", "slateblue3"), mainbar.y.label = "Gene Count", sets.x.label = "Gene Count per Disease")
+
+oligo <- upset(fromList(lt_oligo), order.by = "freq", sets.bar.color = c("olivedrab3", "orangered4", "darkorange2",  "midnightblue",  "slateblue3"), mainbar.y.label = "Gene Count", sets.x.label = "Gene Count per Disease")
+
+neun <- upset(fromList(lt_neun), order.by = "freq", sets.bar.color = c("olivedrab3", "darkorange2",  "slateblue3", "midnightblue", "orangered4"), mainbar.y.label = "Gene Count", sets.x.label = "Gene Count per Disease")
+
+```
+
+#AD - Looking for overlaps of genes between diseases and <5e-8
+```{r}
+
+join1<-join(x = AD_Jansen2019_5e8Microglia_interactome, y = AD_Kunkle2019_Microglia_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = PD_Nalls2019proxy_Microglia_interactome, "gene_name", type="left")
+#join3<-join(x = join2, y = LBD_chia2021_Microglia_interactome, "gene_name", type="left")
+join4<-join(x = join2, y = MS_Andlauer2016_Microglia_interactome, "gene_name", type="left")
+join5<-join(x = join4, y = ALS_Rheenen2021_Microglia_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = SCZ_Trubetskoy2022_Microglia_interactome, "gene_name", type="left")
+
+AD_Jansen2019_5e8Microglia_interactome_overlap<-join6
+
+
+join1<-join(x = AD_Jansen2019_5e8Neuronal_interactome, y = AD_Kunkle2019_Neuronal_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = PD_Nalls2019proxy_Neuronal_interactome, "gene_name", type="left")
+#join3<-join(x = join2, y = LBD_chia2021_Neuronal_interactome, "gene_name", type="left")
+join4<-join(x = join2, y = MS_Andlauer2016_Neuronal_interactome, "gene_name", type="left")
+join5<-join(x = join4, y = ALS_Rheenen2021_Neuronal_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = SCZ_Trubetskoy2022_Neuronal_interactome, "gene_name", type="left")
+
+AD_Jansen2019_5e8Neuronal_interactome_overlap<-join6
+
+join1<-join(x = AD_Jansen2019_5e8Oligo_interactome, y = AD_Kunkle2019_Oligo_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = PD_Nalls2019proxy_Oligo_interactome, "gene_name", type="left")
+#join3<-join(x = join2, y = LBD_chia2021_Oligo_interactome, "gene_name", type="left")
+join4<-join(x = join2, y = MS_Andlauer2016_Oligo_interactome, "gene_name", type="left")
+join5<-join(x = join4, y = ALS_Rheenen2021_Oligo_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = SCZ_Trubetskoy2022_Oligo_interactome, "gene_name", type="left")
+
+AD_Jansen2019_5e8Oligo_interactome_overlap<-join6
+
+
+
+```
+
+#AD_Kunkle- Looking for overlaps of genes between diseases and <5e-8
+```{r}
+join1<-join(x = AD_Kunkle2019_5e8Microglia_interactome, y = AD_Jansen2019_Microglia_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = PD_Nalls2019proxy_Microglia_interactome, "gene_name", type="left")
+#join3<-join(x = join2, y = LBD_chia2021_Microglia_interactome, "gene_name", type="left")
+join4<-join(x = join2, y = MS_Andlauer2016_Microglia_interactome, "gene_name", type="left")
+join5<-join(x = join4, y = ALS_Rheenen2021_Microglia_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = SCZ_Trubetskoy2022_Microglia_interactome, "gene_name", type="left")
+
+AD_Kunkle2019_5e8Microglia_interactome_overlap<-join6
+
+join1<-join(x = AD_Kunkle2019_5e8Neuronal_interactome, y = AD_Jansen2019_Neuronal_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = PD_Nalls2019proxy_Neuronal_interactome, "gene_name", type="left")
+#join3<-join(x = join2, y = LBD_chia2021_Neuronal_interactome, "gene_name", type="left")
+join4<-join(x = join2, y = MS_Andlauer2016_Neuronal_interactome, "gene_name", type="left")
+join5<-join(x = join4, y = ALS_Rheenen2021_Neuronal_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = SCZ_Trubetskoy2022_Neuronal_interactome, "gene_name", type="left")
+
+AD_Kunkle2019_5e8Neuronal_interactome_overlap<-join6
+
+join1<-join(x = AD_Kunkle2019_5e8Oligo_interactome, y = AD_Jansen2019_Oligo_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = PD_Nalls2019proxy_Oligo_interactome, "gene_name", type="left")
+#join3<-join(x = join2, y = LBD_chia2021_Oligo_interactome, "gene_name", type="left")
+join4<-join(x = join2, y = MS_Andlauer2016_Oligo_interactome, "gene_name", type="left")
+join5<-join(x = join4, y = ALS_Rheenen2021_Oligo_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = SCZ_Trubetskoy2022_Oligo_interactome, "gene_name", type="left")
+
+AD_Kunkle2019_5e8Oligo_interactome_overlap<-join6
+
+```
+
+#PD_Nalls2019proxy- Looking for overlaps of genes between diseases and <5e-8
+```{r}
+join1<-join(x = PD_Nalls2019proxy_5e8Microglia_interactome, y = AD_Jansen2019_Microglia_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = AD_Kunkle2019_Microglia_interactome, "gene_name", type="left")
+#join3<-join(x = join2, y = LBD_chia2021_Microglia_interactome, "gene_name", type="left")
+join4<-join(x = join2, y = MS_Andlauer2016_Microglia_interactome, "gene_name", type="left")
+join5<-join(x = join4, y = ALS_Rheenen2021_Microglia_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = SCZ_Trubetskoy2022_Microglia_interactome, "gene_name", type="left")
+
+PD_Nalls2019proxy_5e8Microglia_interactome_overlap<-join6
+
+join1<-join(x = PD_Nalls2019proxy_5e8Neuronal_interactome, y = AD_Jansen2019_Neuronal_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = AD_Kunkle2019_Neuronal_interactome, "gene_name", type="left")
+#join3<-join(x = join2, y = LBD_chia2021_Neuronal_interactome, "gene_name", type="left")
+join4<-join(x = join2, y = MS_Andlauer2016_Neuronal_interactome, "gene_name", type="left")
+join5<-join(x = join4, y = ALS_Rheenen2021_Neuronal_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = SCZ_Trubetskoy2022_Neuronal_interactome, "gene_name", type="left")
+
+PD_Nalls2019proxy_5e8Neuronal_interactome_overlap<-join6
+
+join1<-join(x = PD_Nalls2019proxy_5e8Oligo_interactome, y = AD_Jansen2019_Oligo_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = AD_Kunkle2019_Oligo_interactome, "gene_name", type="left")
+#join3<-join(x = join2, y = LBD_chia2021_Oligo_interactome, "gene_name", type="left")
+join4<-join(x = join2, y = MS_Andlauer2016_Oligo_interactome, "gene_name", type="left")
+join5<-join(x = join4, y = ALS_Rheenen2021_Oligo_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = SCZ_Trubetskoy2022_Oligo_interactome, "gene_name", type="left")
+
+PD_Nalls2019proxy_5e8Oligo_interactome_overlap<-join6
+```
+
+#LBD_chia2021- Looking for overlaps of genes between diseases and <5e-8
+```{r}
+join1<-join(x = LBD_chia2021_5e8Microglia_interactome, y = AD_Jansen2019_Microglia_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = AD_Kunkle2019_Microglia_interactome, "gene_name", type="left")
+join3<-join(x = join2, y = PD_Nalls2019proxy_Microglia_interactome, "gene_name", type="left")
+join4<-join(x = join3, y = MS_Andlauer2016_Microglia_interactome, "gene_name", type="left")
+join5<-join(x = join4, y = ALS_Rheenen2021_Microglia_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = SCZ_Trubetskoy2022_Microglia_interactome, "gene_name", type="left")
+
+LBD_chia2021_5e8Microglia_interactome_overlap<-join6
+
+join1<-join(x = LBD_chia2021_5e8Neuronal_interactome, y = AD_Jansen2019_Neuronal_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = AD_Kunkle2019_Neuronal_interactome, "gene_name", type="left")
+join3<-join(x = join2, y = PD_Nalls2019proxy_Neuronal_interactome, "gene_name", type="left")
+join4<-join(x = join3, y = MS_Andlauer2016_Neuronal_interactome, "gene_name", type="left")
+join5<-join(x = join4, y = ALS_Rheenen2021_Neuronal_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = SCZ_Trubetskoy2022_Neuronal_interactome, "gene_name", type="left")
+
+LBD_chia2021_5e8Neuronal_interactome_overlap<-join6
+
+join1<-join(x = LBD_chia2021_5e8Oligo_interactome, y = AD_Jansen2019_Oligo_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = AD_Kunkle2019_Oligo_interactome, "gene_name", type="left")
+join3<-join(x = join2, y = PD_Nalls2019proxy_Oligo_interactome, "gene_name", type="left")
+join4<-join(x = join3, y = MS_Andlauer2016_Oligo_interactome, "gene_name", type="left")
+join5<-join(x = join4, y = ALS_Rheenen2021_Oligo_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = SCZ_Trubetskoy2022_Oligo_interactome, "gene_name", type="left")
+
+LBD_chia2021_5e8Oligo_interactome_overlap<-join6
+```
+
+#MS_Andlauer2016- Looking for overlaps of genes between diseases and <5e-8
+
+```{r}
+join1<-join(x = MS_Andlauer2016_5e8Microglia_interactome, y = AD_Jansen2019_Microglia_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = AD_Kunkle2019_Microglia_interactome, "gene_name", type="left")
+join3<-join(x = join2, y = PD_Nalls2019proxy_Microglia_interactome, "gene_name", type="left")
+#join4<-join(x = join3, y = LBD_chia2021_Microglia_interactome, "gene_name", type="left")
+join5<-join(x = join3, y = ALS_Rheenen2021_Microglia_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = SCZ_Trubetskoy2022_Microglia_interactome, "gene_name", type="left")
+
+MS_Andlauer2016_5e8Microglia_interactome_overlap<-join6
+
+join1<-join(x = MS_Andlauer2016_5e8Neuronal_interactome, y = AD_Jansen2019_Neuronal_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = AD_Kunkle2019_Neuronal_interactome, "gene_name", type="left")
+join3<-join(x = join2, y = PD_Nalls2019proxy_Neuronal_interactome, "gene_name", type="left")
+#join4<-join(x = join3, y = LBD_chia2021_Neuronal_interactome, "gene_name", type="left")
+join5<-join(x = join3, y = ALS_Rheenen2021_Neuronal_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = SCZ_Trubetskoy2022_Neuronal_interactome, "gene_name", type="left")
+
+MS_Andlauer2016_5e8Neuronal_interactome_overlap<-join6
+
+join1<-join(x = MS_Andlauer2016_5e8Oligo_interactome, y = AD_Jansen2019_Oligo_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = AD_Kunkle2019_Oligo_interactome, "gene_name", type="left")
+join3<-join(x = join2, y = PD_Nalls2019proxy_Oligo_interactome, "gene_name", type="left")
+#join4<-join(x = join3, y = LBD_chia2021_Oligo_interactome, "gene_name", type="left")
+join5<-join(x = join3, y = ALS_Rheenen2021_Oligo_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = SCZ_Trubetskoy2022_Oligo_interactome, "gene_name", type="left")
+
+MS_Andlauer2016_5e8Oligo_interactome_overlap<-join6
+```
+
+#ALS_Rheenen2021- Looking for overlaps of genes between diseases and <5e-8
+
+```{r}
+join1<-join(x = ALS_Rheenen2021_5e8Microglia_interactome, y = AD_Jansen2019_Microglia_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = AD_Kunkle2019_Microglia_interactome, "gene_name", type="left")
+join3<-join(x = join2, y = PD_Nalls2019proxy_Microglia_interactome, "gene_name", type="left")
+#join4<-join(x = join3, y = LBD_chia2021_Microglia_interactome, "gene_name", type="left")
+join5<-join(x = join3, y = MS_Andlauer2016_Microglia_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = SCZ_Trubetskoy2022_Microglia_interactome, "gene_name", type="left")
+
+ALS_Rheenen2021_5e8Microglia_interactome_overlap<-join6
+
+join1<-join(x = ALS_Rheenen2021_5e8Neuronal_interactome, y = AD_Jansen2019_Neuronal_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = AD_Kunkle2019_Neuronal_interactome, "gene_name", type="left")
+join3<-join(x = join2, y = PD_Nalls2019proxy_Neuronal_interactome, "gene_name", type="left")
+#join4<-join(x = join3, y = LBD_chia2021_Neuronal_interactome, "gene_name", type="left")
+join5<-join(x = join3, y = MS_Andlauer2016_Neuronal_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = SCZ_Trubetskoy2022_Neuronal_interactome, "gene_name", type="left")
+
+ALS_Rheenen2021_5e8Neuronal_interactome_overlap<-join6
+
+join1<-join(x = ALS_Rheenen2021_5e8Oligo_interactome, y = AD_Jansen2019_Oligo_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = AD_Kunkle2019_Oligo_interactome, "gene_name", type="left")
+join3<-join(x = join2, y = PD_Nalls2019proxy_Oligo_interactome, "gene_name", type="left")
+#join4<-join(x = join3, y = LBD_chia2021_Oligo_interactome, "gene_name", type="left")
+join5<-join(x = join3, y = MS_Andlauer2016_Oligo_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = SCZ_Trubetskoy2022_Oligo_interactome, "gene_name", type="left")
+
+ALS_Rheenen2021_5e8Oligo_interactome_overlap<-join6
+
+```
+
+#SCZ_Trubetskoy2022- Looking for overlaps of genes between diseases and <5e-8
+
+```{r}
+join1<-join(x = SCZ_Trubetskoy2022_5e12Microglia_interactome, y = AD_Jansen2019_Microglia_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = AD_Kunkle2019_Microglia_interactome, "gene_name", type="left")
+join3<-join(x = join2, y = PD_Nalls2019proxy_Microglia_interactome, "gene_name", type="left")
+#join4<-join(x = join3, y = LBD_chia2021_Microglia_interactome, "gene_name", type="left")
+join5<-join(x = join3, y = MS_Andlauer2016_Microglia_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = ALS_Rheenen2021_Microglia_interactome, "gene_name", type="left")
+
+SCZ_Trubetskoy2022_5e12Microglia_interactome_overlap<-join6
+
+join1<-join(x = SCZ_Trubetskoy2022_5e12Neuronal_interactome, y = AD_Jansen2019_Neuronal_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = AD_Kunkle2019_Neuronal_interactome, "gene_name", type="left")
+join3<-join(x = join2, y = PD_Nalls2019proxy_Neuronal_interactome, "gene_name", type="left")
+#join4<-join(x = join3, y = LBD_chia2021_Neuronal_interactome, "gene_name", type="left")
+join5<-join(x = join3, y = MS_Andlauer2016_Neuronal_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = ALS_Rheenen2021_Neuronal_interactome, "gene_name", type="left")
+
+SCZ_Trubetskoy2022_5e12Neuronal_interactome_overlap<-join6
+
+join1<-join(x = SCZ_Trubetskoy2022_5e12Oligo_interactome, y = AD_Jansen2019_Oligo_interactome, "gene_name", type="left")
+join2<-join(x = join1, y = AD_Kunkle2019_Oligo_interactome, "gene_name", type="left")
+join3<-join(x = join2, y = PD_Nalls2019proxy_Oligo_interactome, "gene_name", type="left")
+#join4<-join(x = join3, y = LBD_chia2021_Oligo_interactome, "gene_name", type="left")
+join5<-join(x = join3, y = MS_Andlauer2016_Oligo_interactome, "gene_name", type="left")
+join6<-join(x = join5, y = ALS_Rheenen2021_Oligo_interactome, "gene_name", type="left")
+
+SCZ_Trubetskoy2022_5e12Oligo_interactome_overlap<-join6
+```
+
+
+#AD_Jansen - combining all genes per disease together - the ones that overap with other diseases and 5e-8
+```{r}
+#micrglia
+AD_AD<-data.frame(gene_name=AD_Jansen2019_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_AD_Jansen2019 = AD_Jansen2019_5e8Microglia_interactome_overlap$Microglia_interactome_AD_Jansen2019)
+
+AD_AD_k<-data.frame(gene_name=AD_Kunkle2019_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_AD_Jansen2019 = AD_Kunkle2019_5e8Microglia_interactome_overlap$Microglia_interactome_AD_Jansen2019)
+
+AD_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_AD_Jansen2019 = PD_Nalls2019proxy_5e8Microglia_interactome_overlap$Microglia_interactome_AD_Jansen2019)
+
+#AD_LBD<-data.frame(gene_name=LBD_chia2021_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_AD_Jansen2019 = LBD_chia2021_5e8Microglia_interactome_overlap$Microglia_interactome_AD_Jansen2019)
+
+AD_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_AD_Jansen2019 = MS_Andlauer2016_5e8Microglia_interactome_overlap$Microglia_interactome_AD_Jansen2019)
+
+AD_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_AD_Jansen2019 = ALS_Rheenen2021_5e8Microglia_interactome_overlap$Microglia_interactome_AD_Jansen2019)
+
+AD_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Microglia_interactome_overlap$gene_name, Microglia_interactome_AD_Jansen2019 = SCZ_Trubetskoy2022_5e12Microglia_interactome_overlap$Microglia_interactome_AD_Jansen2019)
+
+
+AD_pu1<-rbind(AD_AD, AD_AD_k, AD_PD, AD_MS, AD_ALS, AD_SCZ)
+
+#neurons 
+
+AD_AD<-data.frame(gene_name=AD_Jansen2019_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_AD_Jansen2019 = AD_Jansen2019_5e8Neuronal_interactome_overlap$Neuronal_interactome_AD_Jansen2019)
+
+AD_AD_k<-data.frame(gene_name=AD_Kunkle2019_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_AD_Jansen2019 = AD_Kunkle2019_5e8Neuronal_interactome_overlap$Neuronal_interactome_AD_Jansen2019)
+
+AD_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_AD_Jansen2019 = PD_Nalls2019proxy_5e8Neuronal_interactome_overlap$Neuronal_interactome_AD_Jansen2019)
+
+#AD_LBD<-data.frame(gene_name=LBD_chia2021_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_AD_Jansen2019 = LBD_chia2021_5e8Neuronal_interactome_overlap$Neuronal_interactome_AD_Jansen2019)
+
+AD_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_AD_Jansen2019 = MS_Andlauer2016_5e8Neuronal_interactome_overlap$Neuronal_interactome_AD_Jansen2019)
+
+AD_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_AD_Jansen2019 = ALS_Rheenen2021_5e8Neuronal_interactome_overlap$Neuronal_interactome_AD_Jansen2019)
+
+AD_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Neuronal_interactome_overlap$gene_name, Neuronal_interactome_AD_Jansen2019 = SCZ_Trubetskoy2022_5e12Neuronal_interactome_overlap$Neuronal_interactome_AD_Jansen2019)
+
+
+AD_neun<-rbind(AD_AD, AD_AD_k, AD_PD, AD_MS, AD_ALS, AD_SCZ)
+
+#olig
+
+AD_AD<-data.frame(gene_name=AD_Jansen2019_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_AD_Jansen2019 = AD_Jansen2019_5e8Oligo_interactome_overlap$Oligo_interactome_AD_Jansen2019)
+
+AD_AD_k<-data.frame(gene_name=AD_Kunkle2019_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_AD_Jansen2019 = AD_Kunkle2019_5e8Oligo_interactome_overlap$Oligo_interactome_AD_Jansen2019)
+
+AD_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_AD_Jansen2019 = PD_Nalls2019proxy_5e8Oligo_interactome_overlap$Oligo_interactome_AD_Jansen2019)
+
+#AD_LBD<-data.frame(gene_name=LBD_chia2021_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_AD_Jansen2019 = LBD_chia2021_5e8Oligo_interactome_overlap$Oligo_interactome_AD_Jansen2019)
+
+AD_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_AD_Jansen2019 = MS_Andlauer2016_5e8Oligo_interactome_overlap$Oligo_interactome_AD_Jansen2019)
+
+AD_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_AD_Jansen2019 = ALS_Rheenen2021_5e8Oligo_interactome_overlap$Oligo_interactome_AD_Jansen2019)
+
+AD_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Oligo_interactome_overlap$gene_name, Oligo_interactome_AD_Jansen2019 = SCZ_Trubetskoy2022_5e12Oligo_interactome_overlap$Oligo_interactome_AD_Jansen2019)
+
+
+AD_olig<-rbind(AD_AD, AD_AD_k, AD_PD, AD_MS, AD_ALS, AD_SCZ)
+```
+
+#AD_Kunkle - combining all genes per disease together - the ones that overap with other diseases and 5e-8
+```{r}
+#micrglia
+ADk_ADk<-data.frame(gene_name=AD_Kunkle2019_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_AD_Kunkle2019 = AD_Kunkle2019_5e8Microglia_interactome_overlap$Microglia_interactome_AD_Kunkle2019)
+
+ADk_AD<-data.frame(gene_name=AD_Jansen2019_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_AD_Kunkle2019 = AD_Jansen2019_5e8Microglia_interactome_overlap$Microglia_interactome_AD_Kunkle2019)
+
+ADk_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_AD_Kunkle2019 = PD_Nalls2019proxy_5e8Microglia_interactome_overlap$Microglia_interactome_AD_Kunkle2019)
+
+#ADk_LBD<-data.frame(gene_name=LBD_chia2021_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_AD_Kunkle2019 = LBD_chia2021_5e8Microglia_interactome_overlap$Microglia_interactome_AD_Kunkle2019)
+
+ADk_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_AD_Kunkle2019 = MS_Andlauer2016_5e8Microglia_interactome_overlap$Microglia_interactome_AD_Kunkle2019)
+
+ADk_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_AD_Kunkle2019 = ALS_Rheenen2021_5e8Microglia_interactome_overlap$Microglia_interactome_AD_Kunkle2019)
+
+ADk_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Microglia_interactome_overlap$gene_name, Microglia_interactome_AD_Kunkle2019 = SCZ_Trubetskoy2022_5e12Microglia_interactome_overlap$Microglia_interactome_AD_Kunkle2019)
+
+
+ADk_pu1<-rbind(ADk_AD, ADk_ADk, ADk_PD, ADk_MS, ADk_ALS, ADk_SCZ)
+
+#neurons 
+
+ADk_ADk<-data.frame(gene_name=AD_Kunkle2019_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_AD_Kunkle2019 = AD_Kunkle2019_5e8Neuronal_interactome_overlap$Neuronal_interactome_AD_Kunkle2019)
+
+ADk_AD<-data.frame(gene_name=AD_Jansen2019_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_AD_Kunkle2019 = AD_Jansen2019_5e8Neuronal_interactome_overlap$Neuronal_interactome_AD_Kunkle2019)
+
+ADk_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_AD_Kunkle2019 = PD_Nalls2019proxy_5e8Neuronal_interactome_overlap$Neuronal_interactome_AD_Kunkle2019)
+
+#ADk_LBD<-data.frame(gene_name=LBD_chia2021_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_AD_Kunkle2019 = LBD_chia2021_5e8Neuronal_interactome_overlap$Neuronal_interactome_AD_Kunkle2019)
+
+ADk_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_AD_Kunkle2019 = MS_Andlauer2016_5e8Neuronal_interactome_overlap$Neuronal_interactome_AD_Kunkle2019)
+
+ADk_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_AD_Kunkle2019 = ALS_Rheenen2021_5e8Neuronal_interactome_overlap$Neuronal_interactome_AD_Kunkle2019)
+
+ADk_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Neuronal_interactome_overlap$gene_name, Neuronal_interactome_AD_Kunkle2019 = SCZ_Trubetskoy2022_5e12Neuronal_interactome_overlap$Neuronal_interactome_AD_Kunkle2019)
+
+ADk_neun<-rbind(ADk_AD, ADk_ADk, ADk_PD, ADk_MS, ADk_ALS, ADk_SCZ)
+
+#olig
+
+ADk_ADk<-data.frame(gene_name=AD_Kunkle2019_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_AD_Kunkle2019 = AD_Kunkle2019_5e8Oligo_interactome_overlap$Oligo_interactome_AD_Kunkle2019)
+
+ADk_AD<-data.frame(gene_name=AD_Jansen2019_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_AD_Kunkle2019 = AD_Jansen2019_5e8Oligo_interactome_overlap$Oligo_interactome_AD_Kunkle2019)
+
+ADk_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_AD_Kunkle2019 = PD_Nalls2019proxy_5e8Oligo_interactome_overlap$Oligo_interactome_AD_Kunkle2019)
+
+#ADk_LBD<-data.frame(gene_name=LBD_chia2021_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_AD_Kunkle2019 = LBD_chia2021_5e8Oligo_interactome_overlap$Oligo_interactome_AD_Kunkle2019)
+
+ADk_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_AD_Kunkle2019 = MS_Andlauer2016_5e8Oligo_interactome_overlap$Oligo_interactome_AD_Kunkle2019)
+
+ADk_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_AD_Kunkle2019 = ALS_Rheenen2021_5e8Oligo_interactome_overlap$Oligo_interactome_AD_Kunkle2019)
+
+ADk_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Oligo_interactome_overlap$gene_name, Oligo_interactome_AD_Kunkle2019 = SCZ_Trubetskoy2022_5e12Oligo_interactome_overlap$Oligo_interactome_AD_Kunkle2019)
+
+
+ADk_olig<-rbind(ADk_AD, ADk_ADk, ADk_PD, ADk_MS, ADk_ALS, ADk_SCZ)
+```
+
+
+#PD_nalls - combining all genes per disease together - the ones that overap with other diseases and 5e-8
+```{r}
+#micrglia
+PD_AD<-data.frame(gene_name=AD_Jansen2019_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_PD_Nalls2019proxy = AD_Jansen2019_5e8Microglia_interactome_overlap$Microglia_interactome_PD_Nalls2019proxy)
+
+PD_ADk<-data.frame(gene_name=AD_Kunkle2019_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_PD_Nalls2019proxy = AD_Kunkle2019_5e8Microglia_interactome_overlap$Microglia_interactome_PD_Nalls2019proxy)
+
+PD_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_PD_Nalls2019proxy = PD_Nalls2019proxy_5e8Microglia_interactome_overlap$Microglia_interactome_PD_Nalls2019proxy)
+
+#PD_LBD<-data.frame(gene_name=LBD_chia2021_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_PD_Nalls2019proxy = LBD_chia2021_5e8Microglia_interactome_overlap$Microglia_interactome_PD_Nalls2019proxy)
+
+PD_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_PD_Nalls2019proxy = MS_Andlauer2016_5e8Microglia_interactome_overlap$Microglia_interactome_PD_Nalls2019proxy)
+
+PD_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_PD_Nalls2019proxy = ALS_Rheenen2021_5e8Microglia_interactome_overlap$Microglia_interactome_PD_Nalls2019proxy)
+
+PD_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Microglia_interactome_overlap$gene_name, Microglia_interactome_PD_Nalls2019proxy = SCZ_Trubetskoy2022_5e12Microglia_interactome_overlap$Microglia_interactome_PD_Nalls2019proxy)
+
+
+PD_pu1<-rbind(PD_AD, PD_ADk, PD_PD, PD_MS, PD_ALS, PD_SCZ)
+
+#neurons
+PD_AD<-data.frame(gene_name=AD_Jansen2019_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_PD_Nalls2019proxy = AD_Jansen2019_5e8Neuronal_interactome_overlap$Neuronal_interactome_PD_Nalls2019proxy)
+
+PD_ADk<-data.frame(gene_name=AD_Kunkle2019_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_PD_Nalls2019proxy = AD_Kunkle2019_5e8Neuronal_interactome_overlap$Neuronal_interactome_PD_Nalls2019proxy)
+
+PD_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_PD_Nalls2019proxy = PD_Nalls2019proxy_5e8Neuronal_interactome_overlap$Neuronal_interactome_PD_Nalls2019proxy)
+
+#PD_LBD<-data.frame(gene_name=LBD_chia2021_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_PD_Nalls2019proxy = LBD_chia2021_5e8Neuronal_interactome_overlap$Neuronal_interactome_PD_Nalls2019proxy)
+
+PD_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_PD_Nalls2019proxy = MS_Andlauer2016_5e8Neuronal_interactome_overlap$Neuronal_interactome_PD_Nalls2019proxy)
+
+PD_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_PD_Nalls2019proxy = ALS_Rheenen2021_5e8Neuronal_interactome_overlap$Neuronal_interactome_PD_Nalls2019proxy)
+
+PD_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Neuronal_interactome_overlap$gene_name, Neuronal_interactome_PD_Nalls2019proxy = SCZ_Trubetskoy2022_5e12Neuronal_interactome_overlap$Neuronal_interactome_PD_Nalls2019proxy)
+
+
+PD_neun<-rbind(PD_AD, PD_ADk, PD_PD, PD_MS, PD_ALS, PD_SCZ)
+
+#oligo
+PD_AD<-data.frame(gene_name=AD_Jansen2019_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_PD_Nalls2019proxy = AD_Jansen2019_5e8Oligo_interactome_overlap$Oligo_interactome_PD_Nalls2019proxy)
+
+PD_ADk<-data.frame(gene_name=AD_Kunkle2019_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_PD_Nalls2019proxy = AD_Kunkle2019_5e8Oligo_interactome_overlap$Oligo_interactome_PD_Nalls2019proxy)
+
+PD_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_PD_Nalls2019proxy = PD_Nalls2019proxy_5e8Oligo_interactome_overlap$Oligo_interactome_PD_Nalls2019proxy)
+
+#PD_LBD<-data.frame(gene_name=LBD_chia2021_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_PD_Nalls2019proxy = LBD_chia2021_5e8Oligo_interactome_overlap$Oligo_interactome_PD_Nalls2019proxy)
+
+PD_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_PD_Nalls2019proxy = MS_Andlauer2016_5e8Oligo_interactome_overlap$Oligo_interactome_PD_Nalls2019proxy)
+
+PD_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_PD_Nalls2019proxy = ALS_Rheenen2021_5e8Oligo_interactome_overlap$Oligo_interactome_PD_Nalls2019proxy)
+
+PD_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Oligo_interactome_overlap$gene_name, Oligo_interactome_PD_Nalls2019proxy = SCZ_Trubetskoy2022_5e12Oligo_interactome_overlap$Oligo_interactome_PD_Nalls2019proxy)
+
+
+PD_olig<-rbind(PD_AD, PD_ADk, PD_PD, PD_MS, PD_ALS, PD_SCZ)
+```
+
+
+#LBD_chia - combining all genes per disease together - the ones that overap with other diseases and 5e-8
+
+```{r}
+#micrglia
+LBD_AD<-data.frame(gene_name=AD_Jansen2019_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_LBD_chia2021 = AD_Jansen2019_5e8Microglia_interactome_overlap$Microglia_interactome_LBD_chia2021)
+
+LBD_ADk<-data.frame(gene_name=AD_Kunkle2019_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_LBD_chia2021 = AD_Kunkle2019_5e8Microglia_interactome_overlap$Microglia_interactome_LBD_chia2021)
+
+LBD_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_LBD_chia2021 = PD_Nalls2019proxy_5e8Microglia_interactome_overlap$Microglia_interactome_LBD_chia2021)
+
+LBD_LBD<-data.frame(gene_name=LBD_chia2021_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_LBD_chia2021 = LBD_chia2021_5e8Microglia_interactome_overlap$Microglia_interactome_LBD_chia2021)
+
+LBD_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_LBD_chia2021 = MS_Andlauer2016_5e8Microglia_interactome_overlap$Microglia_interactome_LBD_chia2021)
+
+LBD_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_LBD_chia2021 = ALS_Rheenen2021_5e8Microglia_interactome_overlap$Microglia_interactome_LBD_chia2021)
+
+LBD_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Microglia_interactome_overlap$gene_name, Microglia_interactome_LBD_chia2021 = SCZ_Trubetskoy2022_5e12Microglia_interactome_overlap$Microglia_interactome_LBD_chia2021)
+
+
+LBD_pu1<-rbind(LBD_AD, LBD_ADk, LBD_PD, LBD_LBD, LBD_MS, LBD_ALS, LBD_SCZ)
+
+#neurons
+
+LBD_AD<-data.frame(gene_name=AD_Jansen2019_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_LBD_chia2021 = AD_Jansen2019_5e8Neuronal_interactome_overlap$Neuronal_interactome_LBD_chia2021)
+
+LBD_ADk<-data.frame(gene_name=AD_Kunkle2019_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_LBD_chia2021 = AD_Kunkle2019_5e8Neuronal_interactome_overlap$Neuronal_interactome_LBD_chia2021)
+
+LBD_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_LBD_chia2021 = PD_Nalls2019proxy_5e8Neuronal_interactome_overlap$Neuronal_interactome_LBD_chia2021)
+
+LBD_LBD<-data.frame(gene_name=LBD_chia2021_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_LBD_chia2021 = LBD_chia2021_5e8Neuronal_interactome_overlap$Neuronal_interactome_LBD_chia2021)
+
+LBD_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_LBD_chia2021 = MS_Andlauer2016_5e8Neuronal_interactome_overlap$Neuronal_interactome_LBD_chia2021)
+
+LBD_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_LBD_chia2021 = ALS_Rheenen2021_5e8Neuronal_interactome_overlap$Neuronal_interactome_LBD_chia2021)
+
+LBD_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Neuronal_interactome_overlap$gene_name, Neuronal_interactome_LBD_chia2021 = SCZ_Trubetskoy2022_5e12Neuronal_interactome_overlap$Neuronal_interactome_LBD_chia2021)
+
+LBD_neun<-rbind(LBD_AD, LBD_ADk, LBD_PD, LBD_LBD, LBD_MS, LBD_ALS, LBD_SCZ)
+
+#oligo
+
+LBD_AD<-data.frame(gene_name=AD_Jansen2019_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_LBD_chia2021 = AD_Jansen2019_5e8Oligo_interactome_overlap$Oligo_interactome_LBD_chia2021)
+
+LBD_ADk<-data.frame(gene_name=AD_Kunkle2019_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_LBD_chia2021 = AD_Kunkle2019_5e8Oligo_interactome_overlap$Oligo_interactome_LBD_chia2021)
+
+LBD_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_LBD_chia2021 = PD_Nalls2019proxy_5e8Oligo_interactome_overlap$Oligo_interactome_LBD_chia2021)
+
+LBD_LBD<-data.frame(gene_name=LBD_chia2021_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_LBD_chia2021 = LBD_chia2021_5e8Oligo_interactome_overlap$Oligo_interactome_LBD_chia2021)
+
+LBD_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_LBD_chia2021 = MS_Andlauer2016_5e8Oligo_interactome_overlap$Oligo_interactome_LBD_chia2021)
+
+LBD_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_LBD_chia2021 = ALS_Rheenen2021_5e8Oligo_interactome_overlap$Oligo_interactome_LBD_chia2021)
+
+LBD_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Oligo_interactome_overlap$gene_name, Oligo_interactome_LBD_chia2021 = SCZ_Trubetskoy2022_5e12Oligo_interactome_overlap$Oligo_interactome_LBD_chia2021)
+
+LBD_olig<-rbind(LBD_AD, LBD_ADk, LBD_PD, LBD_LBD, LBD_MS, LBD_ALS, LBD_SCZ)
+
+```
+
+#MS - combining all genes per disease together - the ones that overap with other diseases and 5e-8
+```{r}
+#micrglia
+MS_AD<-data.frame(gene_name=AD_Jansen2019_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_MS_Andlauer2016 = AD_Jansen2019_5e8Microglia_interactome_overlap$Microglia_interactome_MS_Andlauer2016)
+
+MS_ADk<-data.frame(gene_name=AD_Kunkle2019_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_MS_Andlauer2016 = AD_Kunkle2019_5e8Microglia_interactome_overlap$Microglia_interactome_MS_Andlauer2016)
+
+MS_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_MS_Andlauer2016 = PD_Nalls2019proxy_5e8Microglia_interactome_overlap$Microglia_interactome_MS_Andlauer2016)
+
+#MS_LBD<-data.frame(gene_name=LBD_chia2021_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_MS_Andlauer2016 = LBD_chia2021_5e8Microglia_interactome_overlap$Microglia_interactome_MS_Andlauer2016)
+
+MS_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_MS_Andlauer2016 = MS_Andlauer2016_5e8Microglia_interactome_overlap$Microglia_interactome_MS_Andlauer2016)
+
+MS_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_MS_Andlauer2016 = ALS_Rheenen2021_5e8Microglia_interactome_overlap$Microglia_interactome_MS_Andlauer2016)
+
+MS_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Microglia_interactome_overlap$gene_name, Microglia_interactome_MS_Andlauer2016 = SCZ_Trubetskoy2022_5e12Microglia_interactome_overlap$Microglia_interactome_MS_Andlauer2016)
+
+
+
+MS_pu1<-rbind(MS_AD, MS_ADk, MS_PD, MS_MS, MS_ALS, MS_SCZ)
+
+#neurons
+
+MS_AD<-data.frame(gene_name=AD_Jansen2019_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_MS_Andlauer2016 = AD_Jansen2019_5e8Neuronal_interactome_overlap$Neuronal_interactome_MS_Andlauer2016)
+
+MS_ADk<-data.frame(gene_name=AD_Kunkle2019_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_MS_Andlauer2016 = AD_Kunkle2019_5e8Neuronal_interactome_overlap$Neuronal_interactome_MS_Andlauer2016)
+
+MS_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_MS_Andlauer2016 = PD_Nalls2019proxy_5e8Neuronal_interactome_overlap$Neuronal_interactome_MS_Andlauer2016)
+
+#MS_LBD<-data.frame(gene_name=LBD_chia2021_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_MS_Andlauer2016 = LBD_chia2021_5e8Neuronal_interactome_overlap$Neuronal_interactome_MS_Andlauer2016)
+
+MS_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_MS_Andlauer2016 = MS_Andlauer2016_5e8Neuronal_interactome_overlap$Neuronal_interactome_MS_Andlauer2016)
+
+MS_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_MS_Andlauer2016 = ALS_Rheenen2021_5e8Neuronal_interactome_overlap$Neuronal_interactome_MS_Andlauer2016)
+
+MS_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Neuronal_interactome_overlap$gene_name, Neuronal_interactome_MS_Andlauer2016 = SCZ_Trubetskoy2022_5e12Neuronal_interactome_overlap$Neuronal_interactome_MS_Andlauer2016)
+
+MS_neun<-rbind(MS_AD, MS_ADk, MS_PD, MS_MS, MS_ALS, MS_SCZ)
+
+#oligo 
+MS_AD<-data.frame(gene_name=AD_Jansen2019_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_MS_Andlauer2016 = AD_Jansen2019_5e8Oligo_interactome_overlap$Oligo_interactome_MS_Andlauer2016)
+
+MS_ADk<-data.frame(gene_name=AD_Kunkle2019_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_MS_Andlauer2016 = AD_Kunkle2019_5e8Oligo_interactome_overlap$Oligo_interactome_MS_Andlauer2016)
+
+MS_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_MS_Andlauer2016 = PD_Nalls2019proxy_5e8Oligo_interactome_overlap$Oligo_interactome_MS_Andlauer2016)
+
+#MS_LBD<-data.frame(gene_name=LBD_chia2021_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_MS_Andlauer2016 = LBD_chia2021_5e8Oligo_interactome_overlap$Oligo_interactome_MS_Andlauer2016)
+
+MS_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_MS_Andlauer2016 = MS_Andlauer2016_5e8Oligo_interactome_overlap$Oligo_interactome_MS_Andlauer2016)
+
+MS_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_MS_Andlauer2016 = ALS_Rheenen2021_5e8Oligo_interactome_overlap$Oligo_interactome_MS_Andlauer2016)
+
+MS_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Oligo_interactome_overlap$gene_name, Oligo_interactome_MS_Andlauer2016 = SCZ_Trubetskoy2022_5e12Oligo_interactome_overlap$Oligo_interactome_MS_Andlauer2016)
+
+MS_olig<-rbind(MS_AD, MS_ADk, MS_PD, MS_MS, MS_ALS, MS_SCZ)
+```
+
+#ALS - combining all genes per disease together - the ones that overap with other diseases and 5e-8
+```{r}
+#micrglia
+ALS_AD<-data.frame(gene_name=AD_Jansen2019_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_ALS_Rheenen2021 = AD_Jansen2019_5e8Microglia_interactome_overlap$Microglia_interactome_ALS_Rheenen2021)
+
+ALS_ADk<-data.frame(gene_name=AD_Kunkle2019_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_ALS_Rheenen2021 = AD_Kunkle2019_5e8Microglia_interactome_overlap$Microglia_interactome_ALS_Rheenen2021)
+
+ALS_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_ALS_Rheenen2021 = PD_Nalls2019proxy_5e8Microglia_interactome_overlap$Microglia_interactome_ALS_Rheenen2021)
+
+#ALS_LBD<-data.frame(gene_name=LBD_chia2021_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_ALS_Rheenen2021 = LBD_chia2021_5e8Microglia_interactome_overlap$Microglia_interactome_ALS_Rheenen2021)
+
+ALS_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_ALS_Rheenen2021 = MS_Andlauer2016_5e8Microglia_interactome_overlap$Microglia_interactome_ALS_Rheenen2021)
+
+ALS_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_ALS_Rheenen2021 = ALS_Rheenen2021_5e8Microglia_interactome_overlap$Microglia_interactome_ALS_Rheenen2021)
+
+ALS_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Microglia_interactome_overlap$gene_name, Microglia_interactome_ALS_Rheenen2021 = SCZ_Trubetskoy2022_5e12Microglia_interactome_overlap$Microglia_interactome_ALS_Rheenen2021)
+
+
+ALS_pu1<-rbind(ALS_AD, ALS_ADk, ALS_PD, ALS_MS, ALS_ALS, ALS_SCZ)
+
+#neurons
+
+ALS_AD<-data.frame(gene_name=AD_Jansen2019_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_ALS_Rheenen2021 = AD_Jansen2019_5e8Neuronal_interactome_overlap$Neuronal_interactome_ALS_Rheenen2021)
+
+ALS_ADk<-data.frame(gene_name=AD_Kunkle2019_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_ALS_Rheenen2021 = AD_Kunkle2019_5e8Neuronal_interactome_overlap$Neuronal_interactome_ALS_Rheenen2021)
+
+ALS_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_ALS_Rheenen2021 = PD_Nalls2019proxy_5e8Neuronal_interactome_overlap$Neuronal_interactome_ALS_Rheenen2021)
+
+#ALS_LBD<-data.frame(gene_name=LBD_chia2021_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_ALS_Rheenen2021 = LBD_chia2021_5e8Neuronal_interactome_overlap$Neuronal_interactome_ALS_Rheenen2021)
+
+ALS_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_ALS_Rheenen2021 = MS_Andlauer2016_5e8Neuronal_interactome_overlap$Neuronal_interactome_ALS_Rheenen2021)
+
+ALS_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_ALS_Rheenen2021 = ALS_Rheenen2021_5e8Neuronal_interactome_overlap$Neuronal_interactome_ALS_Rheenen2021)
+
+ALS_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Neuronal_interactome_overlap$gene_name, Neuronal_interactome_ALS_Rheenen2021 = SCZ_Trubetskoy2022_5e12Neuronal_interactome_overlap$Neuronal_interactome_ALS_Rheenen2021)
+
+ALS_neun<-rbind(ALS_AD, ALS_ADk, ALS_PD, ALS_MS, ALS_ALS, ALS_SCZ)
+
+#oligo
+
+ALS_AD<-data.frame(gene_name=AD_Jansen2019_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_ALS_Rheenen2021 = AD_Jansen2019_5e8Oligo_interactome_overlap$Oligo_interactome_ALS_Rheenen2021)
+
+ALS_ADk<-data.frame(gene_name=AD_Kunkle2019_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_ALS_Rheenen2021 = AD_Kunkle2019_5e8Oligo_interactome_overlap$Oligo_interactome_ALS_Rheenen2021)
+
+ALS_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_ALS_Rheenen2021 = PD_Nalls2019proxy_5e8Oligo_interactome_overlap$Oligo_interactome_ALS_Rheenen2021)
+
+#ALS_LBD<-data.frame(gene_name=LBD_chia2021_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_ALS_Rheenen2021 = LBD_chia2021_5e8Oligo_interactome_overlap$Oligo_interactome_ALS_Rheenen2021)
+
+ALS_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_ALS_Rheenen2021 = MS_Andlauer2016_5e8Oligo_interactome_overlap$Oligo_interactome_ALS_Rheenen2021)
+
+ALS_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_ALS_Rheenen2021 = ALS_Rheenen2021_5e8Oligo_interactome_overlap$Oligo_interactome_ALS_Rheenen2021)
+
+ALS_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Oligo_interactome_overlap$gene_name, Oligo_interactome_ALS_Rheenen2021 = SCZ_Trubetskoy2022_5e12Oligo_interactome_overlap$Oligo_interactome_ALS_Rheenen2021)
+
+ALS_olig<-rbind(ALS_AD, ALS_ADk, ALS_PD, ALS_MS, ALS_ALS, ALS_SCZ)
+```
+#SCZ - combining all genes per disease together - the ones that overap with other diseases and 5e-8
+
+```{r}
+#micrglia
+SCZ_AD<-data.frame(gene_name=AD_Jansen2019_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_SCZ_Trubetskoy2022 = AD_Jansen2019_5e8Microglia_interactome_overlap$Microglia_interactome_SCZ_Trubetskoy2022)
+
+SCZ_ADk<-data.frame(gene_name=AD_Kunkle2019_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_SCZ_Trubetskoy2022 = AD_Kunkle2019_5e8Microglia_interactome_overlap$Microglia_interactome_SCZ_Trubetskoy2022)
+
+SCZ_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_SCZ_Trubetskoy2022 = PD_Nalls2019proxy_5e8Microglia_interactome_overlap$Microglia_interactome_SCZ_Trubetskoy2022)
+
+#SCZ_LBD<-data.frame(gene_name=LBD_chia2021_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_SCZ_Trubetskoy2022 = LBD_chia2021_5e8Microglia_interactome_overlap$Microglia_interactome_SCZ_Trubetskoy2022)
+
+SCZ_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_SCZ_Trubetskoy2022 = MS_Andlauer2016_5e8Microglia_interactome_overlap$Microglia_interactome_SCZ_Trubetskoy2022)
+
+SCZ_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Microglia_interactome_overlap$gene_name, Microglia_interactome_SCZ_Trubetskoy2022 = ALS_Rheenen2021_5e8Microglia_interactome_overlap$Microglia_interactome_SCZ_Trubetskoy2022)
+
+SCZ_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Microglia_interactome_overlap$gene_name, Microglia_interactome_SCZ_Trubetskoy2022 = SCZ_Trubetskoy2022_5e12Microglia_interactome_overlap$Microglia_interactome_SCZ_Trubetskoy2022)
+
+
+SCZ_pu1<-rbind(SCZ_AD, SCZ_ADk, SCZ_PD, SCZ_MS, SCZ_ALS, SCZ_SCZ)
+
+#neurons
+SCZ_AD<-data.frame(gene_name=AD_Jansen2019_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_SCZ_Trubetskoy2022 = AD_Jansen2019_5e8Neuronal_interactome_overlap$Neuronal_interactome_SCZ_Trubetskoy2022)
+
+SCZ_ADk<-data.frame(gene_name=AD_Kunkle2019_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_SCZ_Trubetskoy2022 = AD_Kunkle2019_5e8Neuronal_interactome_overlap$Neuronal_interactome_SCZ_Trubetskoy2022)
+
+SCZ_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_SCZ_Trubetskoy2022 = PD_Nalls2019proxy_5e8Neuronal_interactome_overlap$Neuronal_interactome_SCZ_Trubetskoy2022)
+
+#SCZ_LBD<-data.frame(gene_name=LBD_chia2021_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_SCZ_Trubetskoy2022 = LBD_chia2021_5e8Neuronal_interactome_overlap$Neuronal_interactome_SCZ_Trubetskoy2022)
+
+SCZ_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_SCZ_Trubetskoy2022 = MS_Andlauer2016_5e8Neuronal_interactome_overlap$Neuronal_interactome_SCZ_Trubetskoy2022)
+
+SCZ_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Neuronal_interactome_overlap$gene_name, Neuronal_interactome_SCZ_Trubetskoy2022 = ALS_Rheenen2021_5e8Neuronal_interactome_overlap$Neuronal_interactome_SCZ_Trubetskoy2022)
+
+SCZ_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Neuronal_interactome_overlap$gene_name, Neuronal_interactome_SCZ_Trubetskoy2022 = SCZ_Trubetskoy2022_5e12Neuronal_interactome_overlap$Neuronal_interactome_SCZ_Trubetskoy2022)
+
+
+SCZ_neun<-rbind(SCZ_AD, SCZ_ADk, SCZ_PD, SCZ_MS, SCZ_ALS, SCZ_SCZ)
+
+#olig
+
+SCZ_AD<-data.frame(gene_name=AD_Jansen2019_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_SCZ_Trubetskoy2022 = AD_Jansen2019_5e8Oligo_interactome_overlap$Oligo_interactome_SCZ_Trubetskoy2022)
+
+SCZ_ADk<-data.frame(gene_name=AD_Kunkle2019_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_SCZ_Trubetskoy2022 = AD_Kunkle2019_5e8Oligo_interactome_overlap$Oligo_interactome_SCZ_Trubetskoy2022)
+
+SCZ_PD<-data.frame(gene_name=PD_Nalls2019proxy_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_SCZ_Trubetskoy2022 = PD_Nalls2019proxy_5e8Oligo_interactome_overlap$Oligo_interactome_SCZ_Trubetskoy2022)
+
+#SCZ_LBD<-data.frame(gene_name=LBD_chia2021_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_SCZ_Trubetskoy2022 = LBD_chia2021_5e8Oligo_interactome_overlap$Oligo_interactome_SCZ_Trubetskoy2022)
+
+SCZ_MS<-data.frame(gene_name=MS_Andlauer2016_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_SCZ_Trubetskoy2022 = MS_Andlauer2016_5e8Oligo_interactome_overlap$Oligo_interactome_SCZ_Trubetskoy2022)
+
+SCZ_ALS<-data.frame(gene_name=ALS_Rheenen2021_5e8Oligo_interactome_overlap$gene_name, Oligo_interactome_SCZ_Trubetskoy2022 = ALS_Rheenen2021_5e8Oligo_interactome_overlap$Oligo_interactome_SCZ_Trubetskoy2022)
+
+SCZ_SCZ<-data.frame(gene_name=SCZ_Trubetskoy2022_5e12Oligo_interactome_overlap$gene_name, Oligo_interactome_SCZ_Trubetskoy2022 = SCZ_Trubetskoy2022_5e12Oligo_interactome_overlap$Oligo_interactome_SCZ_Trubetskoy2022)
+
+
+SCZ_olig<-rbind(SCZ_AD, SCZ_ADk, SCZ_PD, SCZ_MS, SCZ_ALS, SCZ_SCZ)
+```
+
+
+
+#PU1 - combining all genes per disease together - the ones that overap with other diseases and 5e-8
+```{r}
+
+pu1<-cbind(AD_pu1, ADk_pu1, PD_pu1, MS_pu1, ALS_pu1, SCZ_pu1)
+pu1<-pu1[-c(3,5,7,9,11,13)]
+
+pu1$Microglia_interactome_AD_Jansen2019<-round(x = -log10(pu1$Microglia_interactome_AD_Jansen2019), digits = 2)
+pu1$Microglia_interactome_AD_Kunkle2019<-round(x = -log10(pu1$Microglia_interactome_AD_Kunkle2019), digits = 2)
+pu1$Microglia_interactome_PD_Nalls2019proxy<-round(x = -log10(pu1$Microglia_interactome_PD_Nalls2019proxy), digits = 2)
+#pu1$Microglia_interactome_LBD_chia2021<-round(x = -log10(pu1$Microglia_interactome_LBD_chia2021), digits = 2)
+pu1$Microglia_interactome_MS_Andlauer2016<-round(x = -log10(pu1$Microglia_interactome_MS_Andlauer2016), digits = 2)
+pu1$Microglia_interactome_ALS_Rheenen2021<-round(x = -log10(pu1$Microglia_interactome_ALS_Rheenen2021), digits = 2)
+pu1$Microglia_interactome_SCZ_Trubetskoy2022<-round(x = -log10(pu1$Microglia_interactome_SCZ_Trubetskoy2022), digits = 2)
+
+pu1<-unique(pu1)
+my_patterns <- c("Y_RNA")
+#filter for rows where status column contains one of several strings
+pu1 <- pu1 %>% filter(!grepl(paste(my_patterns, collapse='|'), gene_name))
+rownames(pu1)<-pu1$gene_name
+pu1<-pu1[,-1]
+pu1 <- replace(pu1, is.na(pu1), 0)
+
+pu1_2<-transpose(pu1)
+rownames(pu1_2)<-colnames(pu1)
+colnames(pu1_2)<-rownames(pu1)
+```
+
+```{r}
+annotation_row<-data.frame(DiseaseType = c(rep(c("AD_Jansen"), times=1), rep(c("AD_Kunkle"), times=1), rep(c("PD"), times=1), rep(c("MS"), times=1), rep(c("ALS"), times=1), rep(c("SCZ"), times=1)))
+
+rownames(annotation_row) = rownames(pu1_2)
+
+ann_colors = list(DiseaseType = c(AD_Jansen="darkorange2", AD_Kunkle = "goldenrod1",  PD="slateblue3", MS="midnightblue", ALS="orangered4", SCZ="olivedrab3"))
+
+pheatmap(mat = pu1_2, 
+         color = c("white","pink1", "palevioletred1", "hotpink3", "darkorchid4"), 
+        breaks = c(1, 1.30103, 2, 3, 4, 5),
+        display_numbers = F, 
+        number_color = "black", 
+        fontsize_number = 10,
+        number_format =  "%.1f",
+        border_color = "grey88",
+        annotation_row = annotation_row,
+        annotation_colors = ann_colors,  
+        angle_col = 90, 
+        treeheight_row = 5, 
+        treeheight_col = 10,
+        cluster_rows = T, 
+        cluster_cols = T, 
+        show_rownames = F,
+        show_colnames =T, 
+        cellwidth = 4, 
+        cellheight = 4,
+        fontsize = 4, 
+        fontsize_row = 4, 
+        fontsize_col = 3,
+        height = 2, 
+        width = 9, main = "Microglia all genes",
+filename = "~/HMAGMA_Protocol/results/graphs/pheatmap/microglia_pheatmap_v7.pdf")
+```
+
+#neun - combining all genes per disease together - the ones that overap with other diseases and 5e-8
+```{r}
+
+neun<-cbind(AD_neun, ADk_neun, PD_neun, MS_neun, ALS_neun, SCZ_neun)
+neun<-neun[-c(3,5,7,9,11,13)]
+
+neun$Neuronal_interactome_AD_Jansen2019<-round(x = -log10(neun$Neuronal_interactome_AD_Jansen2019), digits = 2)
+neun$Neuronal_interactome_AD_Kunkle2019<-round(x = -log10(neun$Neuronal_interactome_AD_Kunkle2019), digits = 2)
+neun$Neuronal_interactome_PD_Nalls2019proxy<-round(x = -log10(neun$Neuronal_interactome_PD_Nalls2019proxy), digits = 2)
+#neun$Neuronal_interactome_LBD_chia2021<-round(x = -log10(neun$Neuronal_interactome_LBD_chia2021), digits = 2)
+neun$Neuronal_interactome_MS_Andlauer2016<-round(x = -log10(neun$Neuronal_interactome_MS_Andlauer2016), digits = 2)
+neun$Neuronal_interactome_ALS_Rheenen2021<-round(x = -log10(neun$Neuronal_interactome_ALS_Rheenen2021), digits = 2)
+neun$Neuronal_interactome_SCZ_Trubetskoy2022<-round(x = -log10(neun$Neuronal_interactome_SCZ_Trubetskoy2022), digits = 2)
+
+neun<-unique(neun)
+#my_patterns <- c("SNORA63", "SNORD19", "SNORD19B", "snoU13", "Y_RNA", "MATR3")
+#filter for rows where status column contains one of several strings
+#neun <- neun %>% filter(!grepl(paste(my_patterns, collapse='|'), gene_name))
+rownames(neun)<-neun$gene_name
+neun<-neun[,-1]
+neun <- replace(neun, is.na(neun), 0)
+
+neun_2<-transpose(neun)
+rownames(neun_2)<-colnames(neun)
+colnames(neun_2)<-rownames(neun)
+```
+
+```{r}
+annotation_row<-data.frame(DiseaseType = c(rep(c("AD_Jansen"), times=1), rep(c("AD_Kunkle"), times=1), rep(c("PD"), times=1), rep(c("MS"), times=1), rep(c("ALS"), times=1), rep(c("SCZ"), times=1)))
+
+rownames(annotation_row) = rownames(neun_2)
+
+ann_colors = list(DiseaseType = c(AD_Jansen="darkorange2", AD_Kunkle = "goldenrod1",  PD="slateblue3", MS="midnightblue", ALS="orangered4", SCZ="olivedrab3"))
+
+pheatmap(mat = neun_2, 
+         color = c("white","pink1", "palevioletred1", "hotpink3", "darkorchid4"), 
+         breaks = c(1, 1.30103, 2, 3, 4, 5),
+         display_numbers = F, 
+         number_color = "black", 
+         fontsize_number = 10,
+         number_format =  "%.1f",
+         border_color = "grey88",
+         annotation_row = annotation_row,
+         annotation_colors = ann_colors,  
+         angle_col = 90, 
+         treeheight_row = 5, 
+         treeheight_col = 10,
+         cluster_rows = T, 
+         cluster_cols = T, 
+         show_rownames = F,
+         show_colnames =T, 
+         cellwidth = 4, 
+         cellheight = 4,
+         fontsize = 4, 
+         fontsize_row = 4, 
+         fontsize_col = 3,
+         height = 2, 
+         width = 9, main = "Neurons all genes",
+         filename = "~/HMAGMA_Protocol/results/graphs/pheatmap/neurons_pheatmap_v7.pdf")
+```
+
+#olig - combining all genes per disease together - the ones that overap with other diseases and 5e-8
+```{r}
+
+olig<-cbind(AD_olig, ADk_olig, PD_olig, MS_olig, ALS_olig, SCZ_olig)
+olig<-olig[-c(3,5,7,9,11,13)]
+
+olig$Oligo_interactome_AD_Jansen2019<-round(x = -log10(olig$Oligo_interactome_AD_Jansen2019), digits = 2)
+olig$Oligo_interactome_AD_Kunkle2019<-round(x = -log10(olig$Oligo_interactome_AD_Kunkle2019), digits = 2)
+olig$Oligo_interactome_PD_Nalls2019proxy<-round(x = -log10(olig$Oligo_interactome_PD_Nalls2019proxy), digits = 2)
+#olig$Oligo_interactome_LBD_chia2021<-round(x = -log10(olig$Oligo_interactome_LBD_chia2021), digits = 2)
+olig$Oligo_interactome_MS_Andlauer2016<-round(x = -log10(olig$Oligo_interactome_MS_Andlauer2016), digits = 2)
+olig$Oligo_interactome_ALS_Rheenen2021<-round(x = -log10(olig$Oligo_interactome_ALS_Rheenen2021), digits = 2)
+olig$Oligo_interactome_SCZ_Trubetskoy2022<-round(x = -log10(olig$Oligo_interactome_SCZ_Trubetskoy2022), digits = 2)
+
+olig<-unique(olig)
+#my_patterns <- c("SNORA63", "SNORD19", "SNORD19B", "snoU13", "Y_RNA", "MATR3")
+#filter for rows where status column contains one of several strings
+#olig <- olig %>% filter(!grepl(paste(my_patterns, collapse='|'), gene_name))
+rownames(olig)<-olig$gene_name
+olig<-olig[,-1]
+olig <- replace(olig, is.na(olig), 0)
+
+olig_2<-transpose(olig)
+rownames(olig_2)<-colnames(olig)
+colnames(olig_2)<-rownames(olig)
+```
+
+```{r}
+annotation_row<-data.frame(DiseaseType = c(rep(c("AD_Jansen"), times=1), rep(c("AD_Kunkle"), times=1), rep(c("PD"), times=1), rep(c("MS"), times=1), rep(c("ALS"), times=1), rep(c("SCZ"), times=1)))
+
+rownames(annotation_row) = rownames(olig_2)
+
+ann_colors = list(DiseaseType = c(AD_Jansen="darkorange2", AD_Kunkle = "goldenrod1",  PD="slateblue3", MS="midnightblue", ALS="orangered4", SCZ="olivedrab3"))
+
+pheatmap(mat = olig_2, 
+         color = c("white","pink1", "palevioletred1", "hotpink3", "darkorchid4"), 
+         breaks = c(1, 1.30103, 2, 3, 4, 5),
+         display_numbers = F, 
+         number_color = "black", 
+         fontsize_number = 10,
+         number_format =  "%.1f",
+         border_color = "grey88",
+         annotation_row = annotation_row,
+         annotation_colors = ann_colors,  
+         angle_col = 90, 
+         treeheight_row = 5, 
+         treeheight_col = 10,
+         cluster_rows = T, 
+         cluster_cols = T, 
+         show_rownames = F,
+         show_colnames =T, 
+         cellwidth = 4, 
+         cellheight = 4,
+         fontsize = 4, 
+         fontsize_row = 4, 
+         fontsize_col = 3,
+         height = 2, 
+         width = 9, main = "Oligo all genes",
+         filename = "~/HMAGMA_Protocol/results/graphs/pheatmap/oligo_pheatmap_v7.pdf")
+```
