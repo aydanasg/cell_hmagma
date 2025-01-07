@@ -4,6 +4,7 @@
 
 **GWAS datasets**
 The following GWAS summary statistics were used in this study were downloaded from EBI’s GWAS catalogue (https://www.ebi.ac.uk/gwas/) and were of European ancestry:
+
 AD (Jansen 2019) (GCST007320): n= 71,880 cases and 383,378 controls (29);
 
 AD (Kunkle 2019) (GCST007511):  n = 21,982 cases and 41,944 controls, Stage 1 (28);
