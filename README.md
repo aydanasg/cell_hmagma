@@ -15,5 +15,5 @@ Genome-wide association studies have identified thousands of common variants ass
 
 Epigenetics, disease-risk genes, chromatin interactions, neurodegeneration, microglia
 
-![My Image](/Supplementary_Figure_2_for_GitHub.pdf)
+![My Image](/cell_hmagma_schematic.png)
 
