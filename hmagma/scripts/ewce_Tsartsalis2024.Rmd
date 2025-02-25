@@ -1,9 +1,4 @@
----
-title: "ewce"
-author: "Aydan Askarova"
-date: "28/01/2025"
-output: html_document
----
+
 ```{r}
 library("EWCE")
 packageVersion("EWCE") #v ‘1.11.5’
@@ -22,7 +17,7 @@ library(pheatmap)
 ```{r}
 #Cell names and disease names 
 
-load("~/../projects/epinott/live/user_analysed_data/Aydan/vasculature_disease_epi/sc_tsartsalis/ctd/sc_tsartsalis2024_sc_tsartsalis.rda")
+load("ctd/sc_tsartsalis2024_sc_tsartsalis.rda")
 type<-c("AD_Jansen2019", "AD_Kunkle2019", "PD_Nalls2019proxy", "MS_Andlauer2016", "ALS_Rheenen2021", "SCZ_Trubetskoy2022")
 
 cell<- c("Oligo_interactome")
@@ -184,7 +179,7 @@ pheatmap(mat = std, annotation_col = annotation_col, annotation_colors = annotat
          angle_col = 90, 
          fontsize_number = 12,
          fontsize = 7, cellwidth = 30, cellheight = 30, height = 5, width = 15,
-         filename = paste0("~/HMAGMA_Protocol/results/graphs/ewce/ewce_tsartsalis_hmagma.pdf"))
+         filename = paste0("graphs/ewce/ewce_tsartsalis_hmagma.pdf"))
 ```
 
 

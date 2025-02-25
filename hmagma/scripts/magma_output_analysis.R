@@ -1,18 +1,18 @@
 ##MAGMA OUTPUT - FILTERING AND SELECTING RELEVANT GENES
 #Loading gene information and reference genome snps
-load(file = "~/HMAGMA_Protocol/required_files/gene_information.rda") #genes
-load(file = "~/HMAGMA_Protocol/required_files/snps_g1000.rda") #snps
+load(file = "/required_files/gene_information.rda") #genes
+load(file = "/required_files/snps_g1000.rda") #snps
 
 #Cell names and disease names 
 type<-c("AD_Jansen2019", "AD_Kunkle2019", "PD_Nalls2019proxy", "MS_Andlauer2016", "ALS_Rheenen2021", "SCZ_Trubetskoy2022")
 
 #Directories to save the files 
-dir<-"~/HMAGMA_Protocol/HMAGMA_output_v3/original/"
-outdir<-"~/HMAGMA_Protocol/output_annotation_v4/"
+dir<-"/HMAGMA_output_v3/original/"
+outdir<-"/output_annotation_v4/"
 
 #genedir
-dir.create(path = "~/HMAGMA_Protocol/output_annotation_v4/gene_count_og_magma/")
-genedir<-"~/HMAGMA_Protocol/output_annotation_v4/gene_count_og_magma/"
+dir.create(path = "/output_annotation_v4/gene_count_og_magma/")
+genedir<-"/output_annotation_v4/gene_count_og_magma/"
 
 #Extracting signigicant genes - AFTER MAGMA 
 library(dplyr)
@@ -70,81 +70,9 @@ for(t in 1:length(type)) {
     
   }
 
-
-#Merging all the files into one dataframe 
-
-file_list <- list.files(path = "/rds/general/user/aa19618/home/HMAGMA_Protocol/output_annotation_v4/gene_count_og_magma/", full.names = TRUE)
-
-for (file in file_list){
-  
-  # if the merged dataset doesn't exist, create it
-  if (!exists("dataset")){
-    dataset <- read.table(file, header=FALSE, sep="\t")
-  }
-  
-  # if the merged dataset does exist, append to it
-  if (exists("dataset")){
-    temp_dataset <-read.table(file, header=FALSE, sep="\t")
-    dataset<-rbind(dataset, temp_dataset)
-    rm(temp_dataset)
-  }
-  
-}
-
-dataset <- unique(dataset)
-colnames(dataset) <- c("ID", "gene_count", "type", "gwas_type", "count")
-write.table(x = dataset, file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/gene_count_og_magma.txt",row.names = F, col.names = T, quote = F, sep = "\t")
-
-split_dataset<- split(x = dataset, f = dataset$type)
-
-
-##Barplot of magma exonic+promoter 
-library(ggplot2)
-dataset<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/gene_count_og_magma.txt", header=T, sep="\t")
-dataset<-dataset[!grepl("Longevity_Deelan201990th_", dataset$ID),]
-dataset$gene_count_disc<-as.numeric(as.character(dataset$gene_count))
-dataset$TYPE<-paste0(dataset$type, "_", dataset$gwas_type)
-
-
-dataset$TYPE <- factor(dataset$TYPE, levels = c("AD_Jansen2019",  "AD_Kunkle2019", "PD_Nalls2019proxy", "MS_Andlauer2016", "ALS_Rheenen2021", "SCZ_Trubetskoy2022"), ordered = TRUE)
-
-# Define a custom transformation for the y-axis
-custom_trans <- function(x) {
-  ifelse(x <= 700, x, 700 + (x - 700) / 10) # Values above 100 are scaled down
-}
-
-inverse_trans <- function(x) {
-  ifelse(x <= 700, x, 700 + (x - 700) * 10) # Inverse scaling for axis labels
-}
-
-# Custom transformation for the y-axis
-custom_breaks <- c(seq(0, 700, 50), seq(700, 8000, 1000)) # Define breaks
-custom_labels <- as.character(c(seq(0, 700, 50), seq(700, 8000, 1000))) # Corresponding labels
-"darkorange2", "goldenrod1", "midnightblue","orangered4", "slateblue3", "olivedrab3"
-# grouped boxplot
-ggplot<-ggplot(dataset, aes(x=TYPE, y=gene_count, fill=TYPE)) + 
-  geom_bar(position=position_dodge(width = 0.95), stat="identity") +
-  xlab("Disease type") +
-  ylab("Gene count") +
-  theme(text = element_text(size=15)) +
-  guides(fill=guide_legend(title="Cell type")) +
-  scale_y_continuous(
-    breaks = custom_breaks,
-    labels = custom_labels,
-    trans = scales::trans_new("custom", custom_trans, inverse_trans)
-  ) +
-  scale_fill_manual(values=c("darkorange2", "goldenrod1", "midnightblue","orangered4", "slateblue3", "olivedrab3")) +
-#  facet_wrap(~TYPE, scale="free") +
-  theme_classic() +
-  theme(legend.position = "bottom",legend.direction = "horizontal", legend.title = element_blank(), axis.text.x=element_blank(), strip.background = element_blank()) + 
-  ggtitle(label = "Gene count based on exonic and promoter SNPs v5")
-
-ggsave(filename = "gene_count_og_magma_barplot.pdf", plot = last_plot(), device = "pdf", path = "~/HMAGMA_Protocol/results/graphs/barplots/",  width = 20, height = 15, units = "cm")
-```
-
 ##overlapping magma genes wiht each cell type per disease
 library(openxlsx)
-outdir<-"~/HMAGMA_Protocol/output_annotation_v4/"
+outdir<-"/output_annotation_v4/"
 
 cell<- c("Microglia_interactome", "Neuronal_interactome", "Oligo_interactome")
 cell_name<-c("Microglia_interactome"="microglia", "Neuronal_interactome" = "neurons", "Oligo_interactome"="oligo")
@@ -171,7 +99,7 @@ for(t in 1:length(type)){
               
        }}
 
-saveWorkbook(wb, file = "~/HMAGMA_Protocol/results/tables/genes/og_magma_genes.xlsx", overwrite = TRUE)
+saveWorkbook(wb, file = "/results/tables/genes/og_magma_genes.xlsx", overwrite = TRUE)
 
 ##saving as excel
 wb <- createWorkbook()
@@ -185,5 +113,5 @@ load(file= paste0(outdir, cell[c], "_",  type[t], "_fdr005_output_genes_v4_uniqu
     
      }}
 
-saveWorkbook(wb, file = "~/HMAGMA_Protocol/results/tables/genes/unique_to_hmagma_genes_wo_og.xlsx", overwrite = TRUE)
+saveWorkbook(wb, file = "/results/tables/genes/unique_to_hmagma_genes_wo_og.xlsx", overwrite = TRUE)
 

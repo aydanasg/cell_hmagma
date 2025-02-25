@@ -1,0 +1,155 @@
+## HMAGMA output analysis for all regions 
+```{r - HMAGMA output analysis }
+load(file = "/required_files/gene_information.rda")
+load(file = "/required_files/snps_g1000.rda")
+
+type<-c("AD_Jansen2019", "AD_Kunkle2019", "PD_Nalls2019proxy", "MS_Andlauer2016", "ALS_Rheenen2021", "SCZ_Trubetskoy2022", "Longevity_Deelan201990th")
+
+sample<-1:10
+cell<- c("Microglia_interactome", "Neuronal_interactome", "Oligo_interactome")
+
+#Directories to save the files 
+dir<-"/HMAGMA_output_v3/sampled_down/"
+outdir<-"/output_annotation_v4/"
+
+#genedir
+dir.create(path = "/output_annotation_v4/gene_count_sd_without_astro_v4/")
+genedir<-"/output_annotation_v4/gene_count_sd_without_astro_v4/"
+
+
+dat<-c()
+for(t in 1:length(type)) {
+for(s in 1:length(sample)) {
+for(c in 1:length(cell)) {
+  diseasemat<-read.table(paste0(dir, cell[c], "_", sample[s], "_", type[t], "_gc41.genes.out"), header = T)
+  
+  diseasemat$FDR<-p.adjust(p = diseasemat$P, method = "BH") #adding FDR (false discovery rate) to the genes
+  
+  diseasemat_0.01<-diseasemat %>% filter(diseasemat$FDR<=0.01)
+  diseasemat_0.05<-diseasemat %>% filter(diseasemat$FDR<=0.05)
+  diseasemat_0.1<-diseasemat %>% filter(diseasemat$FDR<=0.1)
+  
+  diseasemat_names<-merge(x =diseasemat_0.05, y = genes, by.x="GENE", by.y="gene_id")
+  diseasemat_names<-diseasemat_names[,c(1,19,2,12,13,15,5,8,9,10,18)]
+  colnames(diseasemat_names)<-c("gene_ensg", "gene_name", "gene_chr", "gene_start", "gene_end",
+                                   "gene_strand", "nsnps","gene_zstat", "gene_p", "gene_fdr", "gene_biotype") 
+  
+  diseasemat_names<-diseasemat_names[order(-diseasemat_names$gene_zstat),]
+  
+  #gene count per cell type per disease
+  gene_count<-data.frame(nrow(diseasemat_names))
+  rownames(gene_count) <- paste0(type[t], "_", cell[c], "_", sample[s],"_count")
+  gene_count <- data.frame(names = row.names(gene_count), gene_count) 
+  gene_count<- gene_count %>% data.frame(do.call("rbind", strsplit(as.character(gene_count$names), "_", fixed = TRUE)))
+  write.table(x = gene_count, file = paste0(genedir, type[t], "_", cell[c], "_", sample[s],"_count.txt"), 
+              row.names = F, col.names = F, quote = F, sep = "\t")
+  #z mean per cell type per disease
+  z_mean<-data.frame(sum(diseasemat_names$gene_zstat)/gene_count$nrow.diseasemat_names.) #•
+  rownames(z_mean)<-paste0(type[t], "_", cell[c], "_", sample[s],"_z_mean") #•
+  z_mean <- data.frame(names = row.names(z_mean), z_mean) 
+  z_mean<- z_mean %>% data.frame(do.call("rbind", strsplit(as.character(z_mean$names), "_", fixed = TRUE)))
+  write.table(x = z_mean, file = paste0(zdir, type[t], "_", cell[c], "_", sample[s],"_z_mean.txt"), 
+              row.names = F, col.names = F, quote = F, sep = "\t")
+  
+  #z sum per cell type per disease 
+  z_sum<-data.frame(sum(diseasemat_names$gene_zstat))
+  rownames(z_sum)<-paste0(type[t], "_", cell[c], "_", sample[s],"_z_sum") #•
+  z_sum <- data.frame(names = row.names(z_sum), z_sum) 
+  z_sum<- z_sum %>% data.frame(do.call("rbind", strsplit(as.character(z_sum$names), "_", fixed = TRUE)))
+  write.table(x = z_sum, file = paste0(zdir_sum, type[t], "_", cell[c], "_", sample[s],"_z_sum.txt"), 
+              row.names = F, col.names = F, quote = F, sep = "\t")
+  
+  #assign(paste0(type[t], "_", cell[c], "_", sample[s],"_count"), gene_count) 
+  assign(paste0(type[t], "_", cell[c], "_", sample[s]), diseasemat_names)
+  
+  save(diseasemat_names, file= paste0(outdir, cell[c], "_",  type[t], "_", sample[s], "_fdr005_output_genes_v4.rda"))
+}
+}
+}
+
+```
+
+
+## HMAGMA output analysis for only 1) intronic + intergenic snps, 2) exonic + promoter snps
+```{r - HMAGMA output analysis }
+
+load(file = "/required_files/gene_information.rda")
+load(file = "/required_files/snps_g1000.rda")
+
+type<-c("AD_Jansen2019", "AD_Kunkle2019", "PD_Nalls2019proxy", "MS_Andlauer2016", "ALS_Rheenen2021", "SCZ_Trubetskoy2022", "Longevity_Deelan201990th")
+sample<-1:10
+cell<- c("Microglia_interactome", "Neuronal_interactome", "Oligo_interactome")
+region<-c("interactome_intronic", "pro_exon")
+
+#Directories to save the files 
+dir<-"/HMAGMA_output_v3/sampled_down/"
+outdir<-"/output_annotation_v4/"
+
+#WITHOUT ASTROCYTES
+#genedir
+dir.create(path = "/output_annotation_v4/gene_count_interactome_intronic_sd_without_astro_v4/")
+dir.create(path = "/output_annotation_v4/gene_count_pro_exon_sd_without_astro_v4/")
+
+dat<-c()
+for(t in 1:length(type)) {
+for(s in 1:10) {
+for(c in 1:length(cell)) {
+for (r in 1:length(region)){
+  diseasemat<-read.table(paste0(dir, cell[c], "_", region[r], "_", s, "_", type[t], "_gc41.genes.out"), header = T)
+  diseasemat$FDR<-p.adjust(p = diseasemat$P, method = "BH") #adding FDR (false discovery rate) to the genes
+  
+  diseasemat_0.01<-diseasemat %>% filter(diseasemat$FDR<=0.01)
+  diseasemat_0.05<-diseasemat %>% filter(diseasemat$FDR<=0.05)
+  diseasemat_0.1<-diseasemat %>% filter(diseasemat$FDR<=0.1)
+  
+  diseasemat_names<-merge(x =diseasemat_0.05, y = genes, by.x="GENE", by.y="gene_id")
+  diseasemat_names<-diseasemat_names[,c(1,19,2,12,13,15,5,8,9,10,18)]
+  colnames(diseasemat_names)<-c("gene_ensg", "gene_name", "gene_chr", "gene_start", "gene_end",
+                                   "gene_strand", "nsnps","gene_zstat", "gene_p", "gene_fdr", "gene_biotype") 
+  
+   diseasemat_names<-diseasemat_names[order(-diseasemat_names$gene_zstat),]
+   
+  #gene count per cell type per disease
+  gene_count<-data.frame(nrow(diseasemat_names))
+  rownames(gene_count) <- paste0(type[t], "_", cell[c], "_", region[r], "_", s,"_count")
+  gene_count <- data.frame(names = row.names(gene_count), gene_count)
+  gene_count<- gene_count %>% data.frame(do.call("rbind", strsplit(as.character(gene_count$names), "_", fixed = TRUE)))
+  
+  genedir<-paste0("~/HMAGMA_Protocol/output_annotation_v4/gene_count_", region[r], "_sd_without_astro_v4/")
+  #genedir<-paste0("~/HMAGMA_Protocol/output_annotation_v3/gene_count_", region[r], "_sd_v3/")
+
+  write.table(x = gene_count, file = paste0(genedir, type[t], "_", cell[c], "_", region[r], "_", s,"_count.txt"), 
+              row.names = F, col.names = F, quote = F, sep = "\t")
+  
+  #z mean per cell type per disease
+  z_mean<-data.frame(sum(diseasemat_names$gene_zstat)/gene_count$nrow.diseasemat_names.) #•
+  rownames(z_mean) <- paste0(type[t], "_", cell[c], "_", region[r], "_", s,"_z_mean")
+  z_mean <- data.frame(names = row.names(z_mean), z_mean) 
+  z_mean<- z_mean %>% data.frame(do.call("rbind", strsplit(as.character(z_mean$names), "_", fixed = TRUE)))
+  
+  zdir<-paste0("~/HMAGMA_Protocol/output_annotation_v4/z_mean_", region[r], "_sd_without_astro_v4/")
+  #zdir<-paste0("~/HMAGMA_Protocol/output_annotation_v3/z_mean_", region[r], "_sd_v3/")
+  write.table(x = z_mean, file = paste0(zdir, type[t], "_", cell[c], "_", region[r], "_", s,"_z_mean.txt"), 
+              row.names = F, col.names = F, quote = F, sep = "\t")
+  
+  #z sum per cell type per disease 
+  z_sum<-data.frame(sum(diseasemat_names$gene_zstat))
+  rownames(z_sum) <- paste0(type[t], "_", cell[c], "_", region[r], "_", s,"_z_sum")
+  z_sum <- data.frame(names = row.names(z_sum), z_sum) 
+  z_sum<- z_sum %>% data.frame(do.call("rbind", strsplit(as.character(z_sum$names), "_", fixed = TRUE)))
+  
+  zdir_sum<-paste0("~/HMAGMA_Protocol/output_annotation_v4/z_sum_", region[r], "_sd_without_astro_v4/")
+  #zdir_sum<-paste0("~/HMAGMA_Protocol/output_annotation_v3/z_sum_", region[r], "_sd_v3/")
+  
+  write.table(x = z_sum, file = paste0(zdir_sum, type[t], "_", cell[c], "_", region[r], "_", s,"_z_sum.txt"), 
+              row.names = F, col.names = F, quote = F, sep = "\t")
+  
+  #assign(paste0(type[t], "_", cell[c], "_", s,"_count"), gene_count) 
+  assign(paste0(type[t], "_", cell[c], "_", s), diseasemat_names)
+  
+  save(diseasemat_names, file= paste0(outdir, cell[c], "_",  type[t], "_", region[r], "_", s, "_fdr005_output_genes_v4.rda"))
+}
+}
+}
+} 
+```

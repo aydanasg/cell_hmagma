@@ -1,0 +1,293 @@
+
+## Packages
+
+```{r packages}
+options(stingAsFactors=F)
+library(GenomicRanges)
+library(magrittr) # needs to be run every time you start R and want to use %>%
+library(dplyr)    # alternatively, this also loads %>%
+library(reshape)
+library(readxl)
+
+library(openxlsx)
+```
+
+## Required files
+
+```{r files}
+load ("/required_files/exon_promoranges.rda") #exonranges, promoterranges
+load ("/required_files/snps_g1000.rda") #snps
+load("/required_files/snp_locating_in_exon_promoter_transcript_level_g1000.rda") #snpro, snpexon
+load("/required_files/non_exonic_promoter_snp_g1000.rda") #snpranges
+```
+
+## PLAC-seq filtered to enhancer promoter interactions 
+```{r loading PLAC-seq}
+#Cell names
+cell<- c("Microglia_interactome", "Neuronal_interactome", "Oligo_interactome")
+
+#Directories to save the files 
+outdir<-"/annotation_files/"
+inputdir<-"/required_files/H3K27AC_peaks/"
+
+#Looping
+dat <- c()
+for(i in 1:length(cell)) { 
+  
+    #Reading the plac-seq files for each cell type
+    hic <- read_excel(path = "/required_files/PLAC/aay0793-nott-table-s5.xlsx", sheet = paste0(cell[i]), skip = 2, col_names = T)
+    
+    #Doubling the hic and flipping the start1-end1 with int1-int2 (this is for GRanges function and IRanges)
+    hic.int1 <- hic[,1:6]
+    hic.int2 <- hic[,c(4:6,1:3)]
+    colnames(hic.int1) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
+    colnames(hic.int2) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
+    hic <- rbind(hic.int1, hic.int2)
+    
+    #Creating GRanges for findOverlaps() function
+    hicranges <- GRanges(hic$chrom1, IRanges(as.numeric(hic$start1), as.numeric(hic$end1)),
+                        int1=hic$start2,int2=hic$end2)
+    
+    #Reading promoters data (Nott et al., 2019 paper)
+    promoters<-read.table(file=paste0("/required_files/enhancers_promoters/", cell[i],   "_promoters.bed"), header=F, sep="\t")
+    colnames(promoters)<-c("chr", "start", "end")
+    promoters_ranges<-GRanges(promoters$chr, IRanges(as.numeric(promoters$start), as.numeric(promoters$end)))
+  
+    #Selecting plac-seq interactions that overlap with promoters from Chip-seq (this is just in case the interactions pulled by plac-seq are not tied to promoters)
+    olap<-findOverlaps(query = hicranges, subject = promoters_ranges) #default maxgap=-1L, when one range's start/end strictly inside the other, the gap is considered to be -1.
+    placranges<-hicranges[queryHits(olap)]
+    mcols(placranges)<-cbind(mcols(hicranges[queryHits(olap)]), mcols(promoters_ranges[subjectHits(olap)])) 
+
+    #Selecing filtered plac-seq interactions overlapping with genomic exons
+    olap <- findOverlaps(query = placranges,subject = exonranges); #default maxgap=-1L, when one range's start/end strictly inside the other, the gap is considered to be -1.
+    exonint <- placranges[queryHits(olap)];
+    mcols(exonint) <- cbind(mcols(placranges[queryHits(olap)]), mcols(exonranges[subjectHits(olap)]))
+
+    #Selecing filtered plac-seq interactions overlapping with genomic promoters (1.5kb upstream and 500bp downstream of TSS)
+    olap <- findOverlaps(query = placranges, subject = promoterranges); #default maxgap=-1L, when one range's start/end strictly inside the other, the gap is considered to be -1.
+    proint <- placranges[queryHits(olap)];
+    mcols(proint) <- cbind(mcols(placranges[queryHits(olap)]), mcols(promoterranges[subjectHits(olap)]))
+
+    #Combining filtered plac-seq interactions containing exons and promoters 
+    generanges <- c(exonint,proint)
+    
+    #Making a dataframe with plac-ranges interacting regions and ONLY THEN removing row duplicates (since some plac interactions will overlap between exons and promoters)
+    genebed <- data.frame(chr=seqnames(generanges), snp.start=generanges$int1, snp.end=generanges$int2,
+                          gene.start=start(generanges), gene.end=start(generanges)+width(generanges)-1,
+                          ensg=generanges$gene)
+    genebed <- unique(genebed) 
+    
+    #Making GRanges of the combined filtered plac-seq interactions and making IRanges exon and promoter interacting regions
+    genesnpranges <- GRanges(genebed$chr, IRanges(genebed$snp.start, genebed$snp.end), snp.start=genebed$snp.start, snp.end=genebed$snp.end, gene.start=genebed$gene.start, gene.end=genebed$gene.end, ensg=genebed$ensg)
+
+    #Selecting SNPs that fall within regions that interact with exons and promoters (non_exonic_promoter_snp_g1000.rda = snpranges)
+    olap <- findOverlaps(query = snpranges, subject = genesnpranges); #default maxgap=-1L, when one range's start/end strictly inside the other, the gap is considered to be -1.
+    snpint <- snpranges[queryHits(olap)];
+    mcols(snpint) <- cbind(mcols(snpranges[queryHits(olap)]), mcols(genesnpranges[subjectHits(olap)]))
+    
+    #Making a dataframe with plac-ranges interacting regions and ONLY THEN removing row duplicates 
+    snpint_data<-as.data.frame(snpint) #•
+    snpint_data <- unique(snpint_data) #•
+    
+    #Making GRanges for the SNPs located within exon/promoter interacting regions 
+    snpint<-GRanges(seqnames = snpint_data$seqnames, ranges = IRanges(snpint_data$start, snpint_data$end), strand = snpint_data$strand,
+                    rsid=snpint_data$rsid, ensg=snpint_data$ensg, snp.start=snpint_data$snp.start, snp.end=snpint_data$snp.end, gene.start=snpint_data$gene.start, gene.end=snpint_data$gene.end)
+    
+    save(snpint, file=paste0(outdir, "Hi-C_transcript_interacting_snp_",cell[i], ".rda"))
+    
+    #Reading enhancers data  (Nott et al., 2019 paper) 
+    enhancers<-read.table(file=paste0("/required_files/enhancers_promoters/", cell[i], "_enhancers.bed"), header=F, sep="\t")
+    colnames(enhancers)<-c("chr", "start", "end")
+   enhancers_ranges<-GRanges(enhancers$chr, IRanges(as.numeric(enhancers$start), as.numeric(enhancers$end)))   
+  
+    #Selecting exonic/promoter interacting SNPS overlapping with enhancers   
+    olap<-findOverlaps(query = snpint, subject = enhancers_ranges) #default maxgap=-1L, when one range's start/end strictly inside the other, the gap is considered to be -1.
+    enhancer_snp_ranges<-snpint[queryHits(olap)]
+    mcols(enhancer_snp_ranges)<-cbind(mcols(snpint[queryHits(olap)]), mcols(enhancers_ranges[subjectHits(olap)]))
+
+    #Making a dataframe with exonic/promoter interacting enhancer SNPs and ONLY THEN removing row duplicates 
+    enhancer_snp_ranges_data<-as.data.frame(enhancer_snp_ranges) #•
+    enhancer_snp_ranges_data<-unique(enhancer_snp_ranges_data) #• 
+  
+    #Making GRanges for the enhancer SNPs located within exon/promoter interacting regions 
+    enhancer_snp_ranges<-GRanges(seqnames = enhancer_snp_ranges_data$seqnames, ranges = IRanges(enhancer_snp_ranges_data$start, enhancer_snp_ranges_data$end), strand = enhancer_snp_ranges_data$strand,
+                    rsid=enhancer_snp_ranges_data$rsid, ensg=enhancer_snp_ranges_data$ensg)
+    
+    save(enhancer_snp_ranges, file=paste0(outdir, "Hi-C_transcript_interacting_snp_H3K27ac_",cell[i], ".rda"))
+}
+
+```
+
+## Creating annotation file - PROMOTER + EXONIC + INTRONIC + INTERGENIC regions
+
+```{r}
+#Annotation file - exo, pro, intr, inter
+
+#Looping
+dat<-c()
+for(i in 1:length(cell)){
+  
+  #Loading GRanges for the enhancer SNPs located within the exonic/promoter interacting regions and making into dataframe 
+  load(file=paste0(outdir, "Hi-C_transcript_interacting_snp_H3K27ac_",cell[i],".rda"))
+  snpdat <- data.frame(chr=seqnames(enhancer_snp_ranges), bp=start(enhancer_snp_ranges), rsid=enhancer_snp_ranges$rsid, ensg=enhancer_snp_ranges$ensg)
+  
+  #Saving exonic/promoter SNPs and their genes and combining into one dataframe (snpgene)
+  snpromat <- unique(data.frame(rsid=snpro$rsid, ensg=snpro$gene))
+  snpexonmat <- unique(data.frame(rsid=snpexon$rsid, ensg=snpexon$gene))
+  snpgene<-unique(rbind(snpromat,snpexonmat))
+  
+  #Saving exonic/promoter interacting enhancer SNPs and associated genes 
+  snpintmat<-unique(data.frame(rsid=enhancer_snp_ranges$rsid, ensg=enhancer_snp_ranges$ensg))
+  
+  #Selecting genes and all the associated SNPs that have interactions with enhancers 
+  
+  #1. Selecting all the genes with enhancer interactions, their enhancer SNPs, their exonic/promoter SNPs
+  snpcomb_loop<-merge(x = snpgene, y = snpintmat, by.x="ensg", by.y="ensg", all.y=TRUE) #including 
+  #2. Combining columns 2 and 3 with SNPs from enhancer SNPs and exonic/promoter SNPs
+  snpcomb_loop_melt<-melt(snpcomb_loop, id=c("ensg"))
+  #3. Making rsid the 1st column and ensg 3rd column
+  snpcomb_loop_melt<-snpcomb_loop_melt[,c(3,1)]
+  #4. Removing any duplicate rows
+  snpcomb_loop_melt<-unique(snpcomb_loop_melt)
+  #5. Omitting any NAs in rsid column 
+  snpcomb_loop_melt<-na.omit(snpcomb_loop_melt)
+  #6. Naming the columns 
+  colnames(snpcomb_loop_melt)<-c("rsid", "ensg")
+  #7. Saving the dataframe 
+  save(snpcomb_loop_melt, file=paste0(outdir,"SNP_to_transcript_comb_", cell[i], ".rda")) 
+  
+  #Making MAGMA compatible annotation file 
+  
+  #1. Aggregating all the SNPs associated with the same gene into one row
+  snpagg <- aggregate(snpcomb_loop_melt, list(snpcomb_loop_melt$ensg), unique)
+  #2. Loading gencode41_37 for promoter, exon and gene coordinates 
+  load(file="/required_files/gencode41_37_pro_exo_gene.rda")
+  colnames(gene) <- c("chr", "start", "end", "ensg")
+  #3. Removing "chr" from the first column 
+  gene<-transform(gene, chr=as.character(chr))
+  gene <- gene[grep("chr", gene$chr),]
+  gene$chr <- unlist(lapply(strsplit(gene$chr, "chr"), '[[', 2))
+  #4. Creating gene coordinate infomration (chr:start:end)
+  gene$index <- paste(gene$chr, gene$start, gene$end, sep=":")
+  #5. Adding the index information to the gene-snp file (snpagg)
+  snpagg$index = gene[match(snpagg$ensg, gene$ensg),"index"]
+  #6. Removing any NA
+  snpagg <- snpagg[!is.na(snpagg$index),]
+  snpaggconv <- snpagg[,c("ensg", "index", "rsid")]
+  #7. Formatting and saving the table
+  writable <- format(snpaggconv)
+  write.table(writable, file=paste0(outdir, "SNP_aggregate_transcript_",cell[i],".txt"), quote=F,
+              row.names=F, col.names=F, sep="\t") # change the name of the file
+  #8. Writing it in a list format, each gene and associated information per line 
+  system(paste0("sed -e 's/, /\t/g' < /annotation_files/SNP_aggregate_transcript_",cell[i],".txt >",outdir, cell[i],".transcript.annot"))
+}
+```
+
+## Creating annotation file - PROMOTER + EXONIC regions
+
+```{r}
+#Annotation file - exo, pro
+
+cell<- c("Microglia_interactome", "Neuronal_interactome", "Oligo_interactome")
+outdir<-"/annotation_files/"
+
+dat<-c()
+for(i in 1:length(cell)){
+  
+  #Loading GRanges for the enhancer SNPs located within the exonic/promoter interacting regions and making into dataframe 
+  load(file = paste0(outdir, "Hi-C_transcript_interacting_snp_H3K27ac_", cell[i], ".rda"))
+  snpdat <- data.frame(chr=seqnames(enhancer_snp_ranges), bp=start(enhancer_snp_ranges), rsid=enhancer_snp_ranges$rsid, ensg=enhancer_snp_ranges$ensg)
+  
+  #Saving exonic/promoter SNPs and their genes and combining into one dataframe (snpgene)
+  snpromat <- unique(data.frame(rsid=snpro$rsid, ensg=snpro$gene))
+  snpexonmat <- unique(data.frame(rsid=snpexon$rsid, ensg=snpexon$gene))
+  snpgene<-unique(rbind(snpromat,snpexonmat))
+  
+  #Saving exonic/promoter interacting enhancer SNPs and associated genes 
+  snpintmat<-unique(data.frame(rsid=enhancer_snp_ranges$rsid, ensg=enhancer_snp_ranges$ensg))
+  
+  #Selecting genes and their exonic/promoter SNPs based on whether they have interactions with enhancers 
+  
+  #1. Only keeping genes that have enhacer SNPs
+  snpintmat_ensg_only<-as.data.frame(snpintmat[2])
+  #2. Selecting only those exonic/promoter genes that also have enhancer SNPs
+  snpcomb_loop_melt<-merge(x = snpgene, y = snpintmat_ensg_only, by.x="ensg", by.y="ensg")
+  #3. Making rsid the 1st column and ensg 3rd column
+  snpcomb_loop_melt<-snpcomb_loop_melt[,c(2,1)]
+  #4. Removing any duplicate rows
+  snpcomb_loop_melt<-unique(snpcomb_loop_melt)
+  
+  #Making MAGMA compatible annotation file 
+  
+  #1. Aggregating all the SNPs associated with the same gene into one row
+  snpagg <- aggregate(snpcomb_loop_melt, list(snpcomb_loop_melt$ensg), unique)
+  #2. Loading gencode41_37 for promoter, exon and gene coordinates 
+  load(file="/required_files/gencode41_37_pro_exo_gene.rda")
+  colnames(gene) <- c("chr", "start", "end", "ensg")
+  #3. Removing "chr" from the first column 
+  gene<-transform(gene, chr=as.character(chr))
+  gene <- gene[grep("chr", gene$chr),]
+  gene$chr <- unlist(lapply(strsplit(gene$chr, "chr"), '[[', 2))
+  #4. Creating gene coordinate infomration (chr:start:end)
+  gene$index <- paste(gene$chr, gene$start, gene$end, sep=":")
+  #5. Adding the index information to the gene-snp file (snpagg)
+  snpagg$index = gene[match(snpagg$ensg, gene$ensg),"index"]
+  #6. Removing any NA
+  snpagg <- snpagg[!is.na(snpagg$index),]
+  snpaggconv <- snpagg[,c("ensg", "index", "rsid")]
+  #7. Formatting and saving the table
+  writable <- format(snpaggconv)
+  write.table(writable, file=paste0(outdir, "SNP_aggregate_transcript_pro_exon_",cell[i], ".txt"), quote=F,
+              row.names=F, col.names=F, sep="\t") # change the name of the file
+  #8. Writing it in a list format, each gene and associated information per line 
+  system(paste0("sed -e 's/, /\t/g' < /annotation_files/SNP_aggregate_transcript_pro_exon_",cell[i],".txt >",outdir, cell[i],"_pro_exon.transcript.annot"))
+}
+```
+
+## Creating annotation file - INTRONIC + INTERGENIC regions
+
+```{r}
+#Annotation file intronic and intergenic 
+
+cell<- c("Microglia_interactome", "Neuronal_interactome", "Oligo_interactome")
+outdir<-"/annotation_files/"
+
+dat<-c()
+for(i in 1:length(cell)){
+  
+  #Loading GRanges for the enhancer SNPs located within the exonic/promoter interacting regions and making into dataframe 
+  load(file = paste0(outdir, "Hi-C_transcript_interacting_snp_H3K27ac_", cell[i], ".rda"))
+  snpdat <- data.frame(chr=seqnames(enhancer_snp_ranges), bp=start(enhancer_snp_ranges), rsid=enhancer_snp_ranges$rsid, ensg=enhancer_snp_ranges$ensg)
+  
+  #Saving exonic/promoter interacting enhancer SNPs and associated genes 
+  snpintmat<-unique(data.frame(rsid=enhancer_snp_ranges$rsid, ensg=enhancer_snp_ranges$ensg))
+  snpcomb_loop_melt<-snpintmat
+  
+  #Making MAGMA compatible annotation file 
+  
+  #1. Aggregating all the SNPs associated with the same gene into one row
+  snpagg <- aggregate(snpcomb_loop_melt, list(snpcomb_loop_melt$ensg), unique)
+  #2. Loading gencode41_37 for promoter, exon and gene coordinates 
+  load(file="/required_files/gencode41_37_pro_exo_gene.rda")
+  colnames(gene) <- c("chr", "start", "end", "ensg")
+  #3. Removing "chr" from the first column
+  gene<-transform(gene, chr=as.character(chr))
+  gene <- gene[grep("chr", gene$chr),]
+  gene$chr <- unlist(lapply(strsplit(gene$chr, "chr"), '[[', 2))
+  #4. Creating gene coordinate infomration (chr:start:end)
+  gene$index <- paste(gene$chr, gene$start, gene$end, sep=":")
+  #5. Adding the index information to the gene-snp file (snpagg)
+  snpagg$index = gene[match(snpagg$ensg, gene$ensg),"index"]
+  #6. Removing any NA
+  snpagg <- snpagg[!is.na(snpagg$index),]
+  snpaggconv <- snpagg[,c("ensg", "index", "rsid")]
+  #7. Formatting and saving the table 
+  writable <- format(snpaggconv)
+  
+  write.table(writable, file=paste0(outdir, "SNP_aggregate_transcript_intronic_intergenic_",cell[i],".txt"), quote=F,
+              row.names=F, col.names=F, sep="\t") # change the name of the file
+  #8. Writing it in a list format, each gene and associated information per line 
+  system(paste0("sed -e 's/, /\t/g' < /annotation_files/SNP_aggregate_transcript_intronic_intergenic_",cell[i],".txt >",outdir, cell[i],"_intronic_intergenic.transcript.annot"))
+}
+
+```

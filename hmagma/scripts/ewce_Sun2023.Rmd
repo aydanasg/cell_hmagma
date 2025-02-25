@@ -1,9 +1,3 @@
----
-title: "ewce_sun"
-author: "Aydan Askarova"
-date: "28/01/2025"
-output: html_document
----
 ```{r}
 library("EWCE")
 packageVersion("EWCE") #v ‘1.11.5’
@@ -22,7 +16,7 @@ library(pheatmap)
 ```{r}
 #Cell names and disease names 
 
-load("~/HMAGMA_Protocol/required_files/ctd/sc_microglia_sub_sun2023_sc_sun_2023.rda")
+load("ctd/sc_microglia_sub_sun2023_sc_sun_2023.rda")
 type<-c("AD_Jansen2019", "AD_Kunkle2019", "PD_Nalls2019proxy", "MS_Andlauer2016", "ALS_Rheenen2021", "SCZ_Trubetskoy2022")
 
 cell<- c("Microglia_interactome", "Neuronal_interactome", "Oligo_interactome")
@@ -171,7 +165,7 @@ pheatmap(mat = std, annotation_col = annotation_col, annotation_colors = annotat
          angle_col = 90, 
          fontsize_number = 12,
          fontsize = 7, cellwidth = 30, cellheight = 30, height = 7, width = 15,
-         filename = paste0("/Volumes/aa19618/home/HMAGMA_Protocol/results/graphs/ewce/ewce_microglia_subtype_sun_2023_hmagma.pdf"))
+         filename = paste0("graphs/ewce/ewce_microglia_subtype_sun_2023_hmagma.pdf"))
 ```
 
 

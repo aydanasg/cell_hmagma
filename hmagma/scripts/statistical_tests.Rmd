@@ -1,10 +1,4 @@
----
-title: "statistical_tests"
-author: "Aydan Askarova"
-date: "23/03/2023"
-output: html_document
----
-
+#Running Kruskal-Wallis test and Dunn's test 
 ##Required packages
 ```{r}
 #loading library 
@@ -12,15 +6,11 @@ library(FSA) #version ‘0.9.4’ #dunnTest
 library(rstatix) #‘0.7.2’ #rstatix::dunn_test
 ```
 
-##INTRONIC,INTERGENIC + EXONIC,PROMOTER (WITHOUT ASTROCYTES) GENE COUNT 
+##All genes
 
 ```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/gene_count_sd_without_astro_v4.txt", header = T)
+original<-read.table(file = "results/tables/gene_count_sd_without_astro_v4.txt", header = T)
 original$TYPE<-paste0(original$type,"_",original$gwas_type)
-
-original<-original[!grepl("SCZ_pardinas2018info9_", original$ID),]
-original<-original[!grepl("SCZ_trubetskoy2022_", original$ID),]
-
 
 original_per_disease<-split(x = original, f = original$TYPE)
 
@@ -30,7 +20,6 @@ original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS_An
 original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS_Rheenen2021)
 original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD_Nalls2019proxy)
 original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ_Trubetskoy2022)
-original_LBD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$Longevity_Deelan201990th)
 
 original_AD_J_k_table<-data.frame(statistic=original_AD_J_k$statistic, parameter=original_AD_J_k$parameter, p.value=original_AD_J_k$p.value, method=original_AD_J_k$method, data.name=original_AD_J_k$data.name, disease="original_AD_J_k")
 original_AD_K_k_table<-data.frame(statistic=original_AD_K_k$statistic, parameter=original_AD_K_k$parameter, p.value=original_AD_K_k$p.value, method=original_AD_K_k$method, data.name=original_AD_K_k$data.name, disease="original_AD_K_k")
@@ -38,24 +27,16 @@ original_MS_k_table<-data.frame(statistic=original_MS_k$statistic, parameter=ori
 original_ALS_k_table<-data.frame(statistic=original_ALS_k$statistic, parameter=original_ALS_k$parameter, p.value=original_ALS_k$p.value, method=original_ALS_k$method, data.name=original_ALS_k$data.name, disease="original_ALS_k")
 original_PD_k_table<-data.frame(statistic=original_PD_k$statistic, parameter=original_PD_k$parameter, p.value=original_PD_k$p.value, method=original_PD_k$method, data.name=original_PD_k$data.name, disease="original_PD_k")
 original_SCZ_k_table<-data.frame(statistic=original_SCZ_k$statistic, parameter=original_SCZ_k$parameter, p.value=original_SCZ_k$p.value, method=original_SCZ_k$method, data.name=original_SCZ_k$data.name, disease="original_SCZ_k")
-original_LBD_k_table<-data.frame(statistic=original_LBD_k$statistic, parameter=original_LBD_k$parameter, p.value=original_LBD_k$p.value, method=original_LBD_k$method, data.name=original_LBD_k$data.name, disease="original_LBD_k")
 
+Kruskal_Wallis<-rbind(original_AD_J_k_table,original_AD_K_k_table, original_MS_k_table,original_ALS_k_table, original_PD_k_table, original_SCZ_k_table)
 
-Kruskal_Wallis<-rbind(original_AD_J_k_table,original_AD_K_k_table, original_MS_k_table,original_ALS_k_table, original_PD_k_table, original_SCZ_k_table, original_LBD_k_table)
-
-write.table(x = Kruskal_Wallis,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/Kruskal-Wallis_test_without_astro_v6.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-
+write.table(x = Kruskal_Wallis,file = "results/tables/statistical_tests/Kruskal-Wallis_test_without_astro_v6.txt", sep = "\t", quote = F, row.names = F, col.names = T)
 
 ```
 
 ```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/gene_count_sd_without_astro_v4.txt", header = T)
+original<-read.table(file = "results/tables/gene_count_sd_without_astro_v4.txt", header = T)
 original$TYPE<-paste0(original$type,"_",original$gwas_type)
-
-original<-original[!grepl("SCZ_pardinas2018info9_", original$ID),]
-original<-original[!grepl("SCZ_trubetskoy2022_", original$ID),]
-
 
 original_per_disease<-split(x = original, f = original$TYPE)
 
@@ -79,223 +60,17 @@ original_ALS$TYPE<-"ALS_Rheenen2021"
 original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ_Trubetskoy2022, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
 original_SCZ$TYPE<-"SCZ_Trubetskoy2022"
 
-original_LBD<-rstatix::dunn_test(data = original_per_disease$Longevity_Deelan201990th, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_LBD$TYPE<-"Longevity_Deelan201990th"
+original_dunn<-rbind(original_AD, original_AD_K, original_MS, original_PD, original_ALS, original_SCZ)
 
-original_dunn<-rbind(original_AD, original_AD_K, original_MS, original_PD, original_ALS, original_SCZ, original_LBD)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/gene_count_sd_without_astro_v6_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-##INTRONIC,INTERGENIC + EXONIC,PROMOTER (WITHOUT ASTROCYTES) Z MEAN
-
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_mean_sampled_down_without_astro_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_mean_sampled_down_without_astro_v3.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/z_mean_sampled_down_without_astro_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-##INTRONIC,INTERGENIC + EXONIC,PROMOTER (WITHOUT ASTROCYTES) Z SUM
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_sum_sampled_down_without_astro_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_sum_sampled_down_without_astro_v3.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/z_sum_sampled_down_without_astro_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
+write.table(x = original_dunn,file = "results/tables/statistical_tests/gene_count_sd_without_astro_v6_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
 
 original_dunn
 ```
 
 
-
-##INTRONIC,INTERGENIC + EXONIC,PROMOTER (WITH ASTROCYTES) GENE COUNT
+##INTRONIC,INTERGENIC GENE COUNT 
 ```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/gene_count_sampled_down_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/gene_count_sampled_down_v3.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/gene_count_sampled_down_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-##INTRONIC,INTERGENIC + EXONIC,PROMOTER (WITH ASTROCYTES) Z MEAN
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_mean_sampled_down_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_mean_sampled_down_v3.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/z_mean_sampled_down_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-##INTRONIC,INTERGENIC + EXONIC,PROMOTER (WITH ASTROCYTES) Z SUM
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_sum_sampled_down_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_sum_sampled_down_v3.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/z_sum_sampled_down_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-
-##INTRONIC,INTERGENIC (WITHOUT ASTROCYTES) GENE COUNT 
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/gene_count_interactome_intronic_sd_without_astro_v4.txt", header = T)
+original<-read.table(file = "results/tables/gene_count_interactome_intronic_sd_without_astro_v4.txt", header = T)
 original<-original[!grepl("SCZ_pardinas2018info9_", original$ID),]
 original<-original[!grepl("SCZ_trubetskoy2022_", original$ID),]
 original_per_disease<-split(x = original, f = original$type)
@@ -305,14 +80,11 @@ original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
 original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
 original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
 original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-original_LBD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$Longevity)
 ```
 
 ```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/gene_count_interactome_intronic_sd_without_astro_v4.txt", header = T)
+original<-read.table(file = "results/tables/gene_count_interactome_intronic_sd_without_astro_v4.txt", header = T)
 
-original<-original[!grepl("SCZ_pardinas2018info9_", original$ID),]
-original<-original[!grepl("SCZ_trubetskoy2022_", original$ID),]
 
 original_per_disease<-split(x = original, f = original$type)
 
@@ -331,224 +103,18 @@ original_ALS$type<-"ALS"
 
 original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
 original_SCZ$type<-"SCZ"
-
-original_long<-rstatix::dunn_test(data = original_per_disease$Longevity, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_long$type<-"Longevity"
 
 original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ, original_long)
 
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/gene_count_interactome_intronic_sd_without_astro_v4_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
+write.table(x = original_dunn,file = "results/tables/statistical_tests/gene_count_interactome_intronic_sd_without_astro_v4_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
 
 original_dunn
 ```
 
-
-
-##INTRONIC,INTERGENIC (WITHOUT ASTROCYTES) Z MEAN
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_mean_interactome_intronic_sd_without_astro_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_mean_interactome_intronic_sd_without_astro_v3.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/z_mean_interactome_intronic_sd_without_astro_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-##INTRONIC,INTERGENIC (WITHOUT ASTROCYTES) Z SUM
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_sum_interactome_intronic_sd_without_astro_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_sum_interactome_intronic_sd_without_astro_v3.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/z_sum_interactome_intronic_sd_without_astro_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-
-
-##INTRONIC,INTERGENIC  (WITH ASTROCYTES) GENE COUNT
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/gene_count_sampled_down_interactome_intronic_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/gene_count_sampled_down_interactome_intronic_v3.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/gene_count_sampled_down_interactome_intronic_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-##INTRONIC,INTERGENIC  (WITH ASTROCYTES) Z MEAN
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_mean_sampled_down_interactome_intronic_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_mean_sampled_down_interactome_intronic_v3.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/z_mean_sampled_down_interactome_intronic_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-##INTRONIC,INTERGENIC  (WITH ASTROCYTES) Z SUM
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_sum_sampled_down_interactome_intronic_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_sum_sampled_down_interactome_intronic_v3.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/z_sum_sampled_down_interactome_intronic_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
 
 ##EXONIC,PROMOTER (WITHOUT ASTROCYTES) GENE COUNT
 ```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/gene_count_pro_exon_sd_without_astro_v4.txt", header = T)
+original<-read.table(file = "results/tables/gene_count_pro_exon_sd_without_astro_v4.txt", header = T)
 
 original_per_disease<-split(x = original, f = original$type)
 
@@ -560,50 +126,7 @@ original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
 ```
 
 ```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/gene_count_pro_exon_sd_without_astro_v4.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_long<-rstatix::dunn_test(data = original_per_disease$Longevity, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_long$type<-"Longevity"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ, original_long)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/gene_count_pro_exon_sd_without_astro_v4_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-##EXONIC,PROMOTER (WITHOUT ASTROCYTES) Z MEAN
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_mean_pro_exon_sd_without_astro_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_mean_pro_exon_sd_without_astro_v3.txt", header = T)
+original<-read.table(file = "results/tables/gene_count_pro_exon_sd_without_astro_v4.txt", header = T)
 original_per_disease<-split(x = original, f = original$type)
 
 #analysing the specific samples for stochatic dominance 
@@ -624,418 +147,7 @@ original_SCZ$type<-"SCZ"
 
 original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
 
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/z_mean_pro_exon_sd_without_astro_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-##EXONIC,PROMOTER (WITHOUT ASTROCYTES) Z SUM
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_sum_pro_exon_sd_without_astro_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_sum_pro_exon_sd_without_astro_v3.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/z_sum_pro_exon_sd_without_astro_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-
-##EXONIC,PROMOTER (WITH ASTROCYTES) GENE COUNT
-
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/gene_count_pro_exon_sd_without_astro_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/gene_count_pro_exon_sd_without_astro_v3.txt", header = T)
-
-original<-original[!grepl("SCZ_pardinas2018info9_", original$ID),]
-original<-original[!grepl("SCZ_trubetskoy2022_", original$ID),]
-
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/gene_count_pro_exon_sd_without_astro_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-
-##EXONIC,PROMOTER (WITH ASTROCYTES) Z MEAN
-
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_mean_sampled_down_pro_exon_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_mean_sampled_down_pro_exon_v3.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/z_mean_sampled_down_pro_exon_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-
-##EXONIC,PROMOTER (WITH ASTROCYTES) Z SUM
-
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_sum_sampled_down_pro_exon_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_sum_sampled_down_pro_exon_v3.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/z_sum_sampled_down_pro_exon_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-##FULL (WITHOUT 10KB) GENE COUNT 
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/gene_count_sd_full_without_10kb.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/gene_count_sd_full_without_10kb.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/gene_count_sd_full_without_10kb_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-##FULL (WITHOUT 10KB) Z MEAN
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_mean_sampled_down_full_without_10kb_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_mean_sampled_down_full_without_10kb_v3.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/z_mean_sampled_down_full_without_10kb_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-
-```
-
-##FULL (WITHOUT 10KB) Z SUM
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_sum_sampled_down_full_without_10kb_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_sum_sampled_down_full_without_10kb_v3.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/z_sum_sampled_down_full_without_10kb_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-##FULL (WITH 10KB) GENE COUNT 
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/gene_count_sampled_down_full_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/gene_count_sampled_down_full_v3.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/gene_count_sampled_down_full_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-##FULL (WITH 10KB) Z MEAN
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_mean_sampled_down_full_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_mean_sampled_down_full_v3.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/z_mean_sampled_down_full_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
-
-original_dunn
-```
-
-##FULL (WITH 10KB) Z SUM
-```{r - Kruskal-Wallis test (non-parametric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_sum_sampled_down_full_v3.txt", header = T)
-
-original_per_disease<-split(x = original, f = original$type)
-
-original_AD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$AD)
-original_MS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$MS)
-original_ALS_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$ALS)
-original_PD_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$PD)
-original_SCZ_k<-kruskal.test(gene_count ~ cell, data = original_per_disease$SCZ)
-```
-
-```{r - Dunn's test (non-paramtric)}
-original<-read.table(file = "/rds/general/user/aa19618/home/HMAGMA_Protocol/results/tables/z_sum_sampled_down_full_v3.txt", header = T)
-original_per_disease<-split(x = original, f = original$type)
-
-#analysing the specific samples for stochatic dominance 
-original_AD<-rstatix::dunn_test(data = original_per_disease$AD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_AD$type<-"AD"
-
-original_MS<-rstatix::dunn_test(data = original_per_disease$MS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_MS$type<-"MS"
-
-original_PD<-rstatix::dunn_test(data = original_per_disease$PD, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_PD$type<-"PD"
-
-original_ALS<-rstatix::dunn_test(data = original_per_disease$ALS, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_ALS$type<-"ALS"
-
-original_SCZ<-rstatix::dunn_test(data = original_per_disease$SCZ, formula = gene_count ~ cell, p.adjust.method = "BH", detailed = FALSE)
-original_SCZ$type<-"SCZ"
-
-original_dunn<-rbind(original_AD, original_MS, original_PD, original_ALS, original_SCZ)
-
-write.table(x = original_dunn,file = "~/HMAGMA_Protocol/results/tables/statistical_tests/z_sum_sampled_down_full_v3_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
+write.table(x = original_dunn,file = "results/tables/statistical_tests/gene_count_pro_exon_sd_without_astro_v4_dunn.txt", sep = "\t", quote = F, row.names = F, col.names = T)
 
 original_dunn
 ```

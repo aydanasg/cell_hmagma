@@ -1,0 +1,175 @@
+
+##Loading packages
+```{r packages}
+options(stingAsFactors=F)
+library(GenomicRanges)
+library(biomaRt)
+library(dplyr)
+library(readxl)
+library("reshape")
+library(ggplot2)
+library(magrittr) # needs to be run every time you start R and want to use %>%
+library(dplyr)    # alternatively, this also loads %>%
+library(stringr)
+```
+
+##Loading required files 
+```{r}
+load ("/required_files/exon_promoranges.rda")
+load ("/required_files/snps_g1000.rda")
+load("/required_files/snp_locating_in_exon_promoter_transcript_level_g1000.rda")
+load("/required_files/non_exonic_promoter_snp_g1000.rda")
+load(file = "/required_files/gene_information.rda")
+```
+
+##Loading PLAC-seq and sampling down 
+
+```{r loading PLAC-seq sampled down}
+
+#Cell names and random number generator configurations 1:10 
+cell<- c("Microglia_interactome", "Neuronal_interactome", "Oligo_interactome")
+seed<- c(1:10)
+
+#Directories to save the files 
+outdir<-"/annotation_files/"
+inputdir<-"/required_files/H3K27AC_peaks/"
+
+#Looping
+dat <- c()
+for(i in 1:length(cell)) {
+  for(s in 1:10) {
+    
+    #Reading the plac-seq file
+    hic <- read_excel(path = "/required_files/PLAC/aay0793-nott-table-s5.xlsx", sheet = paste0(cell[i]), skip = 2, col_names = T)
+    
+    #Sampling 60000 random rows from the plac-seq data table using set.seed() function in data.table package 
+    #(https://stackoverflow.com/questions/8273313/sample-random-rows-in-dataframe)
+    set.seed(s)
+    hic <- hic[sample(nrow(hic), size=60000),] 
+  
+    #Including all the bins by doubling and flipping the data
+    hic.int1 <- hic[,1:6]
+    hic.int2 <- hic[,c(4:6,1:3)]
+    colnames(hic.int1) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
+    colnames(hic.int2) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
+    hic <- rbind(hic.int1, hic.int2)
+    
+    #Creating GRanges for findOverlaps() function
+    hicranges <- GRanges(hic$chrom1, IRanges(as.numeric(hic$start1), as.numeric(hic$end1)),
+                        int1=hic$start2,int2=hic$end2)
+    
+    #Reading promoters data  (Nott et al., 2019 paper)
+    promoters<-read.table(file=paste0("/required_files/enhancers_promoters/", cell[i], "_promoters.bed"), header=F, sep="\t")
+    colnames(promoters)<-c("chr", "start", "end")
+    promoters_ranges<-GRanges(promoters$chr, IRanges(as.numeric(promoters$start), as.numeric(promoters$end)))
+    
+    #Selecting interactions that overlap with promoters 
+    olap<-findOverlaps(query = hicranges, subject = promoters_ranges) #default maxgap=-1L, when one range's start/end strictly inside the other, the gap is considered to be -1.
+    placranges<-hicranges[queryHits(olap)]
+    mcols(placranges)<-cbind(mcols(hicranges[queryHits(olap)]), mcols(promoters_ranges[subjectHits(olap)])) 
+
+    #Selecting plac interactions that overlap with exons 
+    olap <- findOverlaps(query = placranges,subject = exonranges); #default maxgap=-1L, when one range's start/end strictly inside the other, the gap is considered to be -1.
+    exonint <- placranges[queryHits(olap)];
+    mcols(exonint) <- cbind(mcols(placranges[queryHits(olap)]), mcols(exonranges[subjectHits(olap)]))
+    
+    #Selecting plac interactions that overlap with promoters  
+    olap <- findOverlaps(query = placranges,subject = promoterranges); #default maxgap=-1L, when one range's start/end strictly inside the other, the gap is considered to be -1.
+    proint <- placranges[queryHits(olap)];
+    mcols(proint) <- cbind(mcols(placranges[queryHits(olap)]), mcols(promoterranges[subjectHits(olap)]))
+    
+    #Combining plac interactions containing exons and promoters 
+    generanges <- c(exonint,proint)
+    
+    #Making a dataframe with plac-ranges interacting regions 
+    genebed <- data.frame(chr=seqnames(generanges), snp.start=generanges$int1, snp.end=generanges$int2,
+                          gene.start=start(generanges), gene.end=start(generanges)+width(generanges)-1,
+                          ensg=generanges$gene)
+    
+    #Since some plac interactions will overlap between exons and promoters, keeping only the unique rows (removing duplicates)
+    genebed <- unique(genebed) 
+    genesnpranges <- GRanges(genebed$chr, IRanges(genebed$snp.start, genebed$snp.end), ensg=genebed$ensg)
+
+    #Finding SNPs that fall within plac-ranges interacting regions
+    olap <- findOverlaps(query = snpranges, subject = genesnpranges); #default maxgap=-1L, when one range's start/end strictly inside the other, the gap is considered to be -1.
+    snpint <- snpranges[queryHits(olap)];
+    mcols(snpint) <- cbind(mcols(snpranges[queryHits(olap)]), mcols(genesnpranges[subjectHits(olap)]))
+    
+    #Since some SNPs will overlap keeping only the unique rows for all interactions (removing duplicates)
+    snpint_data<-as.data.frame(snpint) #•
+    snpint_data <- unique(snpint_data) #•
+    
+    snpint<-GRanges(seqnames = snpint_data$seqnames, ranges = IRanges(snpint_data$start, snpint_data$end), 
+                    strand = snpint_data$strand, rsid=snpint_data$rsid, ensg=snpint_data$ensg)
+    
+    save(snpint, file=paste0(outdir, "Hi-C_transcript_interacting_snp_",cell[i],"_SAMPLED_DOWN", s,".rda"))
+    
+    #Reading enhancers data  (Nott et al., 2019 paper) 
+    enhancers<-read.table(file=paste0("/required_files/enhancers_promoters/", cell[i], "_enhancers.bed"), header=F, sep="\t")
+    colnames(enhancers)<-c("chr", "start", "end")
+    enhancers_ranges<-GRanges(enhancers$chr, IRanges(as.numeric(enhancers$start), as.numeric(enhancers$end)))   
+    
+    #Selecting SNPs overlaping with plac-ranges interacting enhancers   
+    olap<-findOverlaps(query = snpint, subject = enhancers_ranges) #default maxgap=-1L, when one range's start/end strictly inside the other, the gap is considered to be -1.
+    enhancer_snp_ranges<-snpint[queryHits(olap)]
+    mcols(enhancer_snp_ranges)<-cbind(mcols(snpint[queryHits(olap)]), mcols(enhancers_ranges[subjectHits(olap)]))
+    
+    #Removing duplicate rows
+    enhancer_snp_ranges_data<-as.data.frame(enhancer_snp_ranges) #•
+    enhancer_snp_ranges_data<-unique(enhancer_snp_ranges_data) #• 
+  
+    enhancer_snp_ranges<-GRanges(seqnames = enhancer_snp_ranges_data$seqnames, ranges = IRanges(enhancer_snp_ranges_data$start, enhancer_snp_ranges_data$end), 
+                                 strand = enhancer_snp_ranges_data$strand, rsid=enhancer_snp_ranges_data$rsid, ensg=enhancer_snp_ranges_data$ensg)
+    
+  
+    save(enhancer_snp_ranges, file=paste0(outdir, "Hi-C_transcript_interacting_snp_H3K27ac_",cell[i],"_SAMPLED_DOWN", s,".rda"))
+}
+}
+
+```
+
+```{r - Annotation file - exo, pro, intr, inter}
+cell<- c("Microglia_interactome", "Neuronal_interactome", "Oligo_interactome")
+outdir<-"/annotation_files/"
+
+dat<-c()
+for(i in 1:length(cell)){
+  for(s in 1:10){
+  load(file=paste0(outdir, "Hi-C_transcript_interacting_snp_H3K27ac_",cell[i],"_SAMPLED_DOWN", s,".rda"))
+  snpdat <- data.frame(chr=seqnames(enhancer_snp_ranges), bp=start(enhancer_snp_ranges), rsid=enhancer_snp_ranges$rsid, ensg=enhancer_snp_ranges$ensg)
+  
+  snpromat <- unique(data.frame(rsid=snpro$rsid, ensg=snpro$gene))
+  snpexonmat <- unique(data.frame(rsid=snpexon$rsid, ensg=snpexon$gene))
+  snpgene<-unique(rbind(snpromat,snpexonmat))
+  
+  snpintmat<-unique(data.frame(rsid=enhancer_snp_ranges$rsid, ensg=enhancer_snp_ranges$ensg))
+  
+  snpcomb_loop<-merge(x = snpgene, y = snpintmat, by.x="ensg", by.y="ensg", all.y=TRUE)
+  snpcomb_loop_melt<-melt(snpcomb_loop, id=c("ensg"))
+  snpcomb_loop_melt<-snpcomb_loop_melt[,c(3,1)]
+  snpcomb_loop_melt<-unique(snpcomb_loop_melt)
+  snpcomb_loop_melt<-na.omit(snpcomb_loop_melt)
+  colnames(snpcomb_loop_melt)<-c("rsid", "ensg")
+  
+  save(snpcomb_loop_melt, file=paste0(outdir,"SNP_to_transcript_comb_", cell[i], "_SAMPLED_DOWN", s, ".rda")) 
+  
+  snpagg <- aggregate(snpcomb_loop_melt, list(snpcomb_loop_melt$ensg), unique)
+  load(file="/required_files/gencode41_37_pro_exo_gene.rda")
+  colnames(gene) <- c("chr", "start", "end", "ensg")
+  gene<-transform(gene, chr=as.character(chr))
+  gene <- gene[grep("chr", gene$chr),]
+  gene$chr <- unlist(lapply(strsplit(gene$chr, "chr"), '[[', 2))
+  gene$index <- paste(gene$chr, gene$start, gene$end, sep=":")
+  snpagg$index = gene[match(snpagg$ensg, gene$ensg),"index"]
+  
+  snpagg <- snpagg[!is.na(snpagg$index),]
+  snpaggconv <- snpagg[,c("ensg", "index", "rsid")]
+  writable <- format(snpaggconv)
+  
+  write.table(writable, file=paste0(outdir, "SNP_aggregate_transcript_",cell[i], "_SAMPLED_DOWN", s, ".txt"), quote=F,
+              row.names=F, col.names=F, sep="\t") # change the name of the file
+  
+  system(paste0("sed -e 's/, /\t/g' < /annotation_files/SNP_aggregate_transcript_",cell[i], "_SAMPLED_DOWN", s, ".txt >",outdir, cell[i], "_SAMPLED_DOWN", s, ".transcript.annot"))
+  }
+}
+```

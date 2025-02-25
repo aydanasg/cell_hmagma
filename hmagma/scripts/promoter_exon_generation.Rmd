@@ -1,10 +1,4 @@
----
-title: "gencode41_37 annnotation files"
-author: "Aydan Askarova"
-date: "01/11/2022"
-output: html_document
----
-
+#Overlapping promoter and exonic coordinates with g1000 SNPs
 ```{r}
 #BiocManager::install("rtracklayer")
 library(rtracklayer)
