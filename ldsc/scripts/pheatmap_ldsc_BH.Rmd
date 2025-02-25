@@ -1,0 +1,284 @@
+#LDSC heatmap + coeffient z and p value plots
+```{r}
+library(ggplot2)
+library(pheatmap)
+library(RColorBrewer)
+library(rtracklayer)
+library(data.table)
+
+
+```
+
+## Formatting the data
+```{r}
+#directory 
+dir<-"~/ldsc/heritability/"
+#names 
+type<-c('AD_Jan', 'AD_Kunkle', 'PD_nalls_no23_r_py_2', 'MS_Andlauer', 'ALS_rheenen', 'SCZ_pgc3info9') # SCZ_pgc3info9 - is SCZ Trubetskoy 2022
+region<-c("promoter_enhancers", "promoters", "enhancers", "plac")
+
+#looping 
+for(t in 1:length(type)) {
+  for(r in 1:length(region)) {
+read<-read.table(file = paste0(dir, type[t], "_plac_", region[r], "_v6.results"), sep="\t", header = TRUE)
+read<-read[c(98:100),]
+read$type<-c(paste0("Microglia_plac_", region[r], "_", type[t]), paste0("Neurons_plac_", region[r], "_", type[t]), paste0("Oligodendrocytes_plac_", region[r], "_", type[t]))
+read$ordering<-c("Microglia", "Neurons", "Oligodendrocytes")
+read$Cell_type<-c(paste0("Microglia_plac_", region[r]), paste0("Neurons_plac_", region[r]), paste0("Oligodendrocytes_plac_", region[r]))
+read$FDR<-p.adjust(p = read$Enrichment_p, method = "BH", n = 10) #adding FDR (false discovery rate) to the genes
+read$FDR_log10<-round(x = -log10(read$FDR), digits = 5)
+fulldata<-read
+read<-read[,c(11:13,15)]
+assign(paste0(type[t], "_plac_", region[r]), read)
+
+#one tailed test to convert z score to p value 
+full<-fulldata
+full$Coefficient_p <- pnorm(full$Coefficient_z.score, lower.tail=FALSE)
+full$significance_z <- ifelse(full$Coefficient_p < 0.05, "*", " ")
+
+full<-full[,c(13,15,16,10,17,5,6)]
+colnames(full)<-c("cell_type", "enrichment_p_FDR_log10", "coefficient_p", "coefficient_z", "significance_z", "enrichment", "enrichment_std_error")
+#full$cell_type<-paste0(type[t], "_", full$cell_type)
+full$disease_type<-paste0(type[t])
+####making enrichment_p_FDR_log10 into 0 if coefficient z is negative
+full$enrichment_p_FDR_log10_coeff_z <- ifelse(full$coefficient_z < 0, 0, full$enrichment_p_FDR_log10)
+assign(paste0(type[t], "_plac_", region[r], "_full"), full) 
+
+#only_enrichment<-fulldata[,c(5, 13)]
+only_enrichment<-full[,c("enrichment_p_FDR_log10_coeff_z", "cell_type")]
+colnames(only_enrichment)<-c(paste(type[t]), "cell_type")
+assign(paste0(type[t], "_plac_", region[r]), only_enrichment) 
+
+  }
+}
+
+#directory 
+dir<-"~/ldsc/heritability/"
+#names 
+type<-c('AD_Jan', 'AD_Kunkle', 'PD_nalls_no23_r_py_2', 'MS_Andlauer', 'ALS_rheenen', 'SCZ_pgc3info9')
+region<-c("promoters", "enhancers")
+
+#looping 
+for(t in 1:length(type)) {
+  for(r in 1:length(region)) {
+read<-read.table(file = paste0(dir, type[t], "_", region[r], "_v4.results"), sep="\t", header = TRUE)
+read<-read[c(98:100),]
+read$type<-c(paste0("Microglia_", region[r], "_", type[t]), paste0("Neurons_", region[r], "_", type[t]), paste0("Oligodendrocytes_", region[r], "_", type[t]))
+read$ordering<-c("Microglia", "Neurons", "Oligodendrocytes")
+read$Cell_type<-c(paste0("Microglia_", region[r]), paste0("Neurons_", region[r]), paste0("Oligodendrocytes_", region[r]))
+read$FDR<-p.adjust(p = read$Enrichment_p, method = "BH", n = 10) #adding FDR (false discovery rate) to the genes
+read$FDR_log10<-round(x = -log10(read$FDR), digits = 5)
+fulldata<-read
+read<-read[,c(11:13,15)]
+assign(paste0(type[t], "_", region[r]), read)
+
+#one tailed test to convert z score to p value 
+full<-fulldata
+full$Coefficient_p <- pnorm(full$Coefficient_z.score, lower.tail=FALSE)
+full$significance_z <- ifelse(full$Coefficient_p < 0.05, "*", " ")
+
+full<-full[,c(13,15,16,10,17,5,6)]
+colnames(full)<-c("cell_type", "enrichment_p_FDR_log10", "coefficient_p", "coefficient_z", "significance_z", "enrichment", "enrichment_std_error")
+#full$cell_type<-paste0(type[t], "_", full$cell_type)
+full$disease_type<-paste0(type[t])
+####making enrichment_p_FDR_log10 into 0 if coefficient z is negative
+full$enrichment_p_FDR_log10_coeff_z <- ifelse(full$coefficient_z < 0, 0, full$enrichment_p_FDR_log10)
+assign(paste0(type[t], "_", region[r], "_full"), full) 
+
+#only_enrichment<-fulldata[,c(5, 13)]
+only_enrichment<-full[,c("enrichment_p_FDR_log10_coeff_z", "cell_type")]
+colnames(only_enrichment)<-c(paste(type[t]), "cell_type")
+assign(paste0(type[t], "_", region[r]), only_enrichment) 
+  }
+}
+```
+
+```{r}
+AD<-rbind(AD_Jan_plac_plac_full, AD_Jan_plac_promoter_enhancers_full, AD_Jan_plac_promoters_full, AD_Jan_plac_enhancers_full)
+AD$cell<-sub(pattern = "\\_.*", replacement = "", x = AD$cell_type)
+
+AD_Kunkle<-rbind(AD_Kunkle_plac_plac_full, AD_Kunkle_plac_promoter_enhancers_full, AD_Kunkle_plac_promoters_full, AD_Kunkle_plac_enhancers_full)
+AD_Kunkle$cell<-sub(pattern = "\\_.*", replacement = "", x = AD_Kunkle$cell_type)
+
+PD<-rbind(PD_nalls_no23_r_py_2_plac_plac_full, PD_nalls_no23_r_py_2_plac_promoter_enhancers_full, PD_nalls_no23_r_py_2_plac_promoters_full, PD_nalls_no23_r_py_2_plac_enhancers_full)
+PD$cell<-sub(pattern = "\\_.*", replacement = "", x = PD$cell_type)
+
+MS<-rbind(MS_Andlauer_plac_plac_full, MS_Andlauer_plac_promoter_enhancers_full, MS_Andlauer_plac_promoters_full, MS_Andlauer_plac_enhancers_full)
+MS$cell<-sub(pattern = "\\_.*", replacement = "", x = MS$cell_type)
+
+ALS<-rbind(ALS_rheenen_plac_plac_full, ALS_rheenen_plac_promoter_enhancers_full, ALS_rheenen_plac_promoters_full, ALS_rheenen_plac_enhancers_full)
+#SCZ<-rbind(SCZ_pgc3_plac_promoter_enhancers, SCZ_pgc3_plac_promoters, SCZ_pgc3_plac_enhancer_int_promoters, SCZ_pgc3_plac_enhancers, SCZ_pgc3_promoters, SCZ_pgc3_enhancers)
+ALS$cell<-sub(pattern = "\\_.*", replacement = "", x = ALS$cell_type)
+
+SCZ_info9<-rbind(SCZ_pgc3info9_plac_plac_full, SCZ_pgc3info9_plac_promoter_enhancers_full, SCZ_pgc3info9_plac_promoters_full, SCZ_pgc3info9_plac_enhancers_full)
+SCZ_info9$cell<-sub(pattern = "\\_.*", replacement = "", x = SCZ_info9$cell_type)
+
+#SCZ_pardinasInfo9<-rbind(SCZ_PardinasInfo9_plac_plac, SCZ_PardinasInfo9_plac_promoter_enhancers, SCZ_PardinasInfo9_plac_promoters, SCZ_PardinasInfo9_plac_enhancers, SCZ_PardinasInfo9_promoters, SCZ_PardinasInfo9_enhancers)
+#LBD<-rbind(LBD_Chia_plac_plac_full, LBD_Chia_plac_promoter_enhancers_full, LBD_Chia_plac_promoters_full, LBD_Chia_plac_enhancers_full)
+
+AD<-AD[order(AD$cell), ]
+AD_Kunkle<-AD_Kunkle[order(AD_Kunkle$cell), ]
+MS<-MS[order(MS$cell), ]
+ALS<-ALS[order(ALS$cell), ]
+PD<-PD[order(PD$cell), ]
+#SCZ<-SCZ[order(SCZ$cell), ]
+SCZ_info9<-SCZ_info9[order(SCZ_info9$cell), ]
+#SCZ_pardinasInfo9<-SCZ_pardinasInfo9[order(SCZ_pardinasInfo9$cell), ]
+#LBD<-LBD[order(LBD$cell), ]
+
+AD2<-as.data.frame(AD$enrichment_p_FDR_log10_coeff_z)
+rownames(AD2)<-AD$cell_type
+colnames(AD2)<-"AD_Jan"
+
+AD_Kunkle2<-as.data.frame(AD_Kunkle$enrichment_p_FDR_log10_coeff_z)
+rownames(AD_Kunkle2)<-AD_Kunkle$cell_type
+colnames(AD_Kunkle2)<-"AD_Kunkle"
+
+MS2<-as.data.frame(MS$enrichment_p_FDR_log10_coeff_z)
+rownames(MS2)<-MS$cell_type
+colnames(MS2)<-"MS"
+
+
+ALS2<-as.data.frame(ALS$enrichment_p_FDR_log10_coeff_z)
+rownames(ALS2)<-ALS$cell_type
+colnames(ALS2)<-"ALS"
+
+PD2<-as.data.frame(PD$enrichment_p_FDR_log10_coeff_z)
+rownames(PD2)<-PD$cell_type
+colnames(PD2)<-"PD"
+
+#SCZ2<-as.data.frame(SCZ$FDR)
+#rownames(SCZ2)<-SCZ$Cell_type
+#colnames(SCZ2)<-"SCZ"
+
+SCZ_info92<-as.data.frame(SCZ_info9$enrichment_p_FDR_log10_coeff_z)
+rownames(SCZ_info92)<-SCZ_info9$cell_type
+colnames(SCZ_info92)<-"SCZ_info9"
+
+#SCZ_pardinasInfo92<-as.data.frame(SCZ_pardinasInfo9$FDR)
+#rownames(SCZ_pardinasInfo92)<-SCZ_pardinasInfo9$Cell_type
+#colnames(SCZ_pardinasInfo92)<-"SCZ_pardinasInfo9"
+
+#LBD2<-as.data.frame(LBD$FDR)
+#rownames(LBD2)<-LBD2$Cell_type
+#colnames(LBD2)<-"LBD"
+
+diseases<-cbind(AD2, AD_Kunkle2, PD2, MS2, ALS2, SCZ_info92)
+sapply(diseases, mode)
+diseases[diseases==0]<-0.01
+
+diseases_transposed<-transpose(diseases)
+rownames(diseases_transposed)<-colnames(diseases)
+colnames(diseases_transposed)<-rownames(diseases)
+
+-log10(0.05)
+
+```
+
+#for coefficient p and enrichment 
+```{r}
+#for coefficient p and enrichment 
+result_list_full<-list()
+
+#region<-c("promoters", "enhancers")
+region<-c("promoter_enhancers", "promoters", "enhancers", "plac")
+
+for (r in region) {
+  #Initialize an empty data frame for this results 
+  combined_result_full<-data.frame()
+  
+  #Loop through the types 
+  for (t in type) {
+    #Extract the data frame using 'get'
+    df_name<-paste0(t, "_plac_", r, "_full")
+    df<-get(df_name)
+    
+    #Append the data frame to the combined result
+    combined_result_full<- rbind(combined_result_full, df)
+  }
+  
+ result_list_full[[r]] <- combined_result_full
+}
+```
+
+
+```{r drawing a merged pheatmap}
+
+annotation_col<-data.frame(LdscType=c(rep(c("PLAC-seq bins", "Promoter Enhancer Interactions", "PLAC-seq Promoters", "PLAC-seq Enhancers"), times=3)), CellType=c(rep(c("Microglia"), times=4), rep(c("Neurons"), times=4), rep(c("Oligodendrocytes"), times=4)))
+
+rownames(annotation_col) = colnames(diseases_transposed)
+
+ann_colors = list(CellType = c(Microglia="orangered3", Neurons="seagreen", Oligodendrocytes="deepskyblue3"), LdscType = c('PLAC-seq bins'="darkolivegreen1", 'Promoter Enhancer Interactions' = "bisque1", 'PLAC-seq Promoters' = "indianred", 'PLAC-seq Enhancers' = "cyan3"))
+
+
+pheatmap(diseases_transposed, 
+        color = c("#FFFFFF", "#EAFDB4", "#C5E862", "#6DC335", "#117733"), 
+        breaks = c(1, 1.30103, 2, 3, 4, 5),
+        display_numbers = T, 
+        number_color = "black", 
+        fontsize_number = 10,
+        number_format =  "%.1f",
+        gaps_row = c(1,2,3,4),
+        gaps_col = c(4,8,12),
+        border_color = "grey88",
+        annotation_col = annotation_col,
+        annotation_colors = ann_colors, 
+        show_rownames = T,
+        show_colnames = F, 
+        angle_col = 45,
+        cluster_rows = F, 
+        cluster_cols = F, 
+        cellwidth = 35, 
+        cellheight = 30,
+        fontsize = 12, 
+        fontsize_row = 10, 
+        fontsize_col = 10,
+        height = 4, 
+        width = 14,
+        filename = "~/HMAGMA_Protocol/results/graphs/pheatmap/COMPACT_ldsc_plac_enhancers_promoters_reordered_BH_n10_v13.pdf")
+
+```
+
+
+```{r}
+
+custom_color <- c(rgb(220,30,5, maxColorValue = 255), rgb(95, 160, 15, maxColorValue = 255), rgb(0, 55, 200, maxColorValue = 255))
+
+for (r in 1:length(region)) {
+  # Extract the data frame from result_list_full using the current result (r)
+  df <- result_list_full[[r]]
+  
+enrichment_plot <- ggplot(df, aes(cell_type, enrichment, colour=cell_type)) + 
+                  geom_point(size=1) + 
+                  scale_color_manual(values = custom_color) +
+                  theme_bw() + 
+                  facet_grid(~disease_type) +
+                  theme(axis.ticks.x = element_blank(), axis.text.x = element_blank(), axis.title.x= element_blank()) + 
+                  ylab("Enrichment (Prop. h2 / Prop. SNPs)") + 
+                  geom_pointrange(aes(ymin=enrichment-enrichment_std_error, ymax=enrichment+enrichment_std_error)) + 
+                  geom_hline(yintercept=1, linetype="dotted", color="black") + 
+                  theme(text=element_text(size=10)) + 
+                  labs(color = "") +
+                  ggtitle(label = paste0(region[r]))
+
+ggsave(filename = paste0("enrichment_plot.", region[r], ".pdf"), plot = last_plot(), device = "pdf", path = "~/HMAGMA_Protocol/results/graphs/supplementary_ldsc/",  width = 30, height = 15, units = "cm")
+
+coefficient_plot <- ggplot(df, aes(cell_type, coefficient_z, fill=cell_type)) + 
+                    geom_bar(stat="identity") +
+                    scale_fill_manual(values = custom_color) +
+                    geom_text(aes(label = df$significance_z), vjust = -0.1, size = 5) +
+                    facet_grid(~disease_type) +
+                    theme_bw() + 
+                    theme(axis.ticks.x = element_blank(), axis.text.x = element_blank()) + 
+                    ylab("Coefficient z score") + guides(fill=guide_legend(title="Cell type")) + 
+                    #geom_hline(yintercept=-log10(0.05), linetype="dashed", color="darkgrey") + 
+                    theme(text=element_text(size=10)) + 
+                    xlab("Cell type-specific H3K27ac and TF") + 
+                    labs(color = "") +
+                    ggtitle(label = paste0(region[r]))
+
+ggsave(filename = paste0("coefficient_z_p.", region[r], ".pdf"), plot = last_plot(), device = "pdf", path = "~/HMAGMA_Protocol/results/graphs/supplementary_ldsc/",  width = 30, height = 15, units = "cm")
+}
+
+```
+
