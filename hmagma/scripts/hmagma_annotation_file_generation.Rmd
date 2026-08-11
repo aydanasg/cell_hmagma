@@ -1,4 +1,4 @@
-
+## Annotation files now can be generated using hmagmaR package (https://github.com/aydanasg/hmagmaR)
 ## Packages
 
 ```{r packages}

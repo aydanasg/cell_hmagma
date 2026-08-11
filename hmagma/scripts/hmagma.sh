@@ -1,4 +1,6 @@
-# Running gene-level analysis using MAGMA software on H-MAGMA annotation files 
+## Gene-level analysis using MAGMA software on H-MAGMA annotation files can now be run in R using hmagmaR package (https://github.com/aydanasg/hmagmaR)
+
+#Running gene-level analysis using MAGMA software on H-MAGMA annotation files 
 export cell=('Microglia_interactome' 'Neuronal_interactome' 'Oligo_interactome')
 export disease=("AD_Jansen2019" "AD_Kunkle2019" "PD_Nalls2019_proxy" "MS_Andlauer2016" "ALS_Rheenen2021" "SCZ_Trubetskoy2022")
 

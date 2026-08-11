@@ -1,3 +1,4 @@
+## Sampled down annotation files now can be generated using hmagmaR package (https://github.com/aydanasg/hmagmaR)
 
 ##Loading packages
 ```{r packages}
