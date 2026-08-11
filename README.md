@@ -9,7 +9,7 @@
 <sup>3</sup> Department of Basic and Clinical Neuroscience, Institute of Psychiatry, Psychology and Neuroscience, King's College London, London, UK
 <sup>4</sup> UK Dementia Research Institute, King's College London, London, UK
 
-![Study schematic](cell_hmagma_schematic.tif)
+![Study schematic](microglia_disease_risk.figure2.PNG)
 
 ## Abstract
 
