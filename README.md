@@ -9,8 +9,6 @@
 <sup>3</sup> Department of Basic and Clinical Neuroscience, Institute of Psychiatry, Psychology and Neuroscience, King's College London, London, UK
 <sup>4</sup> UK Dementia Research Institute, King's College London, London, UK
 
-![Study schematic](microglia_disease_risk.figure2.PNG)
-
 ## Abstract
 
 Genome-wide association studies have identified thousands of common variants associated with an increased risk of neurodegenerative disorders. However, the noncoding localization of these variants has made the assignment of target genes for brain cell types challenging. Genomic approaches that infer chromosomal 3D architecture can link noncoding risk variants and distal gene regulatory elements such as enhancers to gene promoters.
@@ -22,6 +20,8 @@ Through Hi-C coupled multimarker analysis of genomic annotation (H-MAGMA), we id
 Our findings reinforce microglia as an important, genetically informed cell type for therapeutic interventions in neurodegenerative conditions and highlight potentially targetable disease-relevant pathways.
 
 **Keywords:** epigenetics, disease-risk genes, chromatin interactions, neurodegeneration, microglia
+
+![Study schematic](microglia_disease_risk.figure2.PNG)
 
 ## Repository structure
 
